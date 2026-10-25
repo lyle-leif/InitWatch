@@ -1,0 +1,1738 @@
+<!doctype html>
+<html lang="en" data-style="araw">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>InitWatch Proposal</title>
+<meta name="description" content="InitWatch: A Heat-Action and Buddy Check-In System for Outdoor Workers. Team 16 project proposal.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap">
+<style>
+/* Layout: full-screen slides stacked in one stage over a worksite that moves from dawn to dusk.
+   A heat rail sits on the right edge, and a concept phone docks beside it on product slides. */
+:root{
+  --pg-caution:#ffd23f; --pg-xcaution:#ff9f1c; --pg-danger:#f0542d; --pg-xdanger:#b5172e;
+  --rail-w:76px;
+  --phone-h:min(74vh,640px);
+  --phone-w:calc(var(--phone-h) * .49);
+  --gut:clamp(20px,4.6vw,84px);
+  --fs:clamp(16px,calc(.7vw + .85vh),23px);
+  --ease:cubic-bezier(.2,.75,.15,1);
+  --notes-h:clamp(92px,13.5vh,128px);
+  --sans-fb:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --mono-fb:ui-monospace,Consolas,Menlo,monospace;
+}
+
+/* ---------- HORIZON FLARE: a dark worksite lit by the sun on the horizon ---------- */
+html{
+  color-scheme:dark;
+  --bg:#0a0706; --bg2:#140b08; --ink:#f5ead9; --muted:#c9b8a6; --line:rgba(255,232,205,.14);
+  --card:rgba(17,11,8,.8); --card-line:rgba(255,232,205,.12);
+  --accent:#ffb04a; --accent2:#ff7a3d; --accent-ink:#1a0c06; --ok:#4fd39a; --bad:#ff6b5e;
+  --display:"DM Serif Display",Georgia,serif; --body:"Manrope",var(--sans-fb); --mono:"DM Mono",var(--mono-fb);
+  --h-weight:400; --h-track:-.01em; --h-case:none; --h-scale:1.12; --radius:16px;
+  --app-bg:#fffaf3; --app-ink:#221a3d; --app-muted:#6b6280; --app-card:#f8efe2; --app-line:#ecdcc6; --app-accent:#ef4d2c;
+  --phone-frame:#1a1310;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:var(--fs);line-height:1.5;overflow:hidden;-webkit-font-smoothing:antialiased;transition:background-color .6s}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
+[hidden]{display:none!important}
+
+/* ---------- ambient layers ---------- */
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
+.veil{position:fixed;inset:0;z-index:1;pointer-events:none}
+html .veil{background:radial-gradient(ellipse 62% 58% at 38% 44%,rgba(10,7,6,.5),rgba(10,7,6,0) 78%),linear-gradient(90deg,rgba(10,7,6,.62) 0%,rgba(10,7,6,.4) 38%,rgba(10,7,6,.12) 64%,rgba(10,7,6,0) 82%)}
+.grain{position:fixed;inset:-50%;z-index:1;pointer-events:none;opacity:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 1.2s steps(6) infinite}
+html .grain{opacity:.06;mix-blend-mode:multiply}
+@keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}40%{transform:translate(2%,-3%)}60%{transform:translate(-2%,-1%)}80%{transform:translate(3%,3%)}100%{transform:translate(0,0)}}
+
+
+
+/* ---------- deck ---------- */
+.deck{position:fixed;inset:0;z-index:2}
+.slide{position:absolute;inset:0;visibility:hidden;display:flex;align-items:center;
+  padding:max(8vh,58px) calc(var(--rail-w) + var(--gut)) max(7vh,46px) max(var(--gut),env(safe-area-inset-left,0px));
+}
+.slide.moving{will-change:clip-path,transform,opacity}
+.slide.active{visibility:visible}
+.slide.has-phone{padding-right:calc(var(--rail-w) + var(--phone-w) + var(--gut) * 1.7)}
+.wrap{width:100%;max-height:100%;overflow:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:clamp(12px,2.2vh,28px);padding:4px 4px 12px}
+.wrap::-webkit-scrollbar{display:none}
+
+/* type */
+.eyebrow{font-family:var(--mono);font-size:.74em;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);display:flex;flex-wrap:wrap;gap:.4em 1em;align-items:center}
+.eyebrow b{color:var(--accent);font-weight:600}
+html .eyebrow b{color:var(--accent)}
+h1,h2,h3{font-family:var(--display);font-weight:var(--h-weight);letter-spacing:var(--h-track);text-transform:var(--h-case);margin:0;text-wrap:balance;line-height:1.04}
+h2{font-size:calc(clamp(26px,2.1vw + 1.9vh,60px) * var(--h-scale));max-width:28ch}
+h3{font-size:1.08em;line-height:1.25;letter-spacing:0}
+html h3{font-family:var(--body);font-weight:700}
+p{margin:0;max-width:64ch}
+.lead{font-size:1.16em;line-height:1.5}
+.muted{color:var(--muted)}
+.small{font-size:.84em}
+.tiny{font-size:.74em}
+.num{font-variant-numeric:tabular-nums}
+
+/* emphasised words */
+html .hot{color:var(--accent);font-weight:600}
+
+/* split words + reveals */
+.w{display:inline-block}
+.slide .rv,.slide .w{opacity:0;transition:opacity .7s var(--ease),transform .9s var(--ease),filter .9s var(--ease);transition-delay:calc(var(--d,0) * 65ms + 120ms)}
+html[data-style] .slide.in .rv,html[data-style] .slide.in .w{opacity:1;transform:none;filter:none}
+html .slide .rv{transform:translateY(24px) scale(.985)}
+html .slide .w{transform:translateY(.45em) rotate(3deg)}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--card-line);border-radius:var(--radius);padding:clamp(11px,1.7vh,22px) clamp(14px,1.3vw,22px);position:relative;min-width:0}
+html .card{box-shadow:0 16px 36px -24px rgba(0,0,0,.75)}
+.card p{max-width:none}
+.card .k{font-family:var(--mono);font-size:.72em;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(10px,1.4vw,20px)}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,1.4vw,20px)}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(10px,1.2vw,18px)}
+.g5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(8px,1vw,14px)}
+.row{display:flex;gap:clamp(10px,1.4vw,20px);flex-wrap:wrap;align-items:center}
+
+.chip{display:inline-flex;align-items:center;gap:.5em;padding:.38em .85em;border:1px solid var(--card-line);border-radius:999px;font-size:.82em;background:var(--card)}
+
+/* heat category chips */
+.cat{display:inline-block;padding:.25em .7em;border-radius:var(--radius);font-family:var(--mono);font-size:.78em;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#14100a}
+.cat.c0{background:#cfe9d8}.cat.c1{background:var(--pg-caution)}.cat.c2{background:var(--pg-xcaution)}.cat.c3{background:var(--pg-danger);color:#fff}.cat.c4{background:var(--pg-xdanger);color:#fff}
+html .cat{border-radius:999px}
+
+/* ---------- S1 cover ---------- */
+.cover h1.title{font-size:calc(clamp(58px,8.6vw,170px) * var(--h-scale));line-height:.92}
+html .cover h1.title{font-weight:400;letter-spacing:-.02em}
+.fil{font-family:var(--display);font-size:1.4em;line-height:1.2}
+.fil span{display:block;font-family:var(--body);font-size:.72em;color:var(--muted);margin-top:.3em;letter-spacing:0;text-transform:none}
+
+.cover-foot{display:flex;flex-wrap:wrap;gap:clamp(16px,3vw,48px);align-items:flex-end;justify-content:space-between;margin-top:1vh}
+.team{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,auto);gap:.25em 2em;font-size:.95em}
+.team li::before{content:"";display:inline-block;width:.5em;height:.5em;margin-right:.6em;background:var(--accent);border-radius:50%;vertical-align:.1em}
+.readout{display:flex;align-items:baseline;gap:.4em;flex-wrap:wrap}
+.readout .k{width:100%;font-family:var(--mono);font-size:.72em;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.readout b{font-family:var(--display);font-size:clamp(44px,5.2vw,100px);line-height:.9;font-weight:400;font-variant-numeric:tabular-nums}
+.readout .deg{font-family:var(--display);font-size:1.8em}
+
+/* ---------- S2 stats ---------- */
+.stat .big{white-space:nowrap;font-family:var(--display);font-size:clamp(26px,2.5vw + .6vh,54px);line-height:1;font-weight:400;font-variant-numeric:tabular-nums;margin:.05em 0 .12em}
+html .stat .big{font-weight:600}
+.stat p{font-size:.86em;color:var(--muted)}
+.stat .src{font-family:var(--mono);font-size:.68em;letter-spacing:.06em;color:var(--muted);margin-top:.6em;opacity:.85}
+.pscale{position:relative;margin-top:.4em}
+.pscale .bands{display:grid;grid-template-columns:6fr 9fr 10fr 8fr;height:clamp(28px,4.4vh,42px);border-radius:var(--radius);overflow:hidden}
+.pscale .bands div{display:flex;align-items:center;padding:0 .7em;font-family:var(--mono);font-size:.72em;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#1a1208;white-space:nowrap;overflow:hidden}
+.pscale .bands div:nth-child(1){background:var(--pg-caution)}.pscale .bands div:nth-child(2){background:var(--pg-xcaution)}
+.pscale .bands div:nth-child(3){background:var(--pg-danger);color:#fff}.pscale .bands div:nth-child(4){background:var(--pg-xdanger);color:#fff}
+.pscale .ticks{display:grid;grid-template-columns:6fr 9fr 10fr 8fr;font-family:var(--mono);font-size:.7em;color:var(--muted);margin-top:.35em}
+.pscale .marker{position:absolute;top:-10px;left:0;width:2px;height:calc(100% + 4px);background:var(--ink);transition:left 1.6s var(--ease) .5s}
+.pscale .marker::before{content:attr(data-l);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);font-size:.7em;background:var(--ink);color:var(--bg);padding:.1em .45em;border-radius:3px}
+.slide.in .pscale .marker{left:var(--to)}
+
+/* ---------- S3 lab ---------- */
+.lab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:clamp(14px,2vw,32px);align-items:stretch}
+.ctrl{display:flex;flex-direction:column;gap:1.2em}
+.ctrl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.8em;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ctrl label b{color:var(--ink);font-size:1.3em;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer;margin:.3em 0 0}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:var(--trk,linear-gradient(90deg,var(--line),var(--line)))}
+input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:var(--trk,var(--line))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:var(--ink);border:3px solid var(--bg);box-shadow:0 0 0 2px var(--ink)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--ink);border:3px solid var(--bg)}
+#rT{--trk:linear-gradient(90deg,#4aa3ff,#ffd23f,#f0542d)}
+#rH{--trk:linear-gradient(90deg,#f4e1b0,#5aa9e6,#1f4fa8)}
+.presets{display:flex;flex-wrap:wrap;gap:.5em}
+.btn{cursor:pointer;border:1px solid var(--card-line);background:var(--card);padding:.5em .95em;border-radius:var(--radius);font-size:.84em;transition:transform .2s,background .2s}
+.btn:hover{transform:translateY(-1px)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
+html .btn{border-radius:999px}
+.btn[disabled]{opacity:.38;cursor:not-allowed;transform:none}
+.out{display:flex;flex-direction:column;gap:1em}
+.out .hi{display:flex;align-items:flex-end;gap:.25em;line-height:.85}
+.out .hi b{font-family:var(--display);font-size:clamp(64px,7.4vw,140px);font-weight:400;font-variant-numeric:tabular-nums;transition:color .4s}
+.out .hi span{font-family:var(--display);font-size:2em;padding-bottom:.2em}
+.gauge{position:relative;height:12px;border-radius:12px;background:linear-gradient(90deg,#cfe9d8 0 5.7%,var(--pg-caution) 5.7% 22.9%,var(--pg-xcaution) 22.9% 48.6%,var(--pg-danger) 48.6% 77.1%,var(--pg-xdanger) 77.1%)}
+.gauge i{position:absolute;top:-6px;width:4px;height:24px;background:var(--ink);border-radius:2px;transform:translateX(-50%);transition:left .35s var(--ease)}
+.gauge-l{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.68em;color:var(--muted);margin-top:.3em}
+.act h3{margin-bottom:.35em}
+.act ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:.25em;font-size:.92em}
+
+/* ---------- S4 gap ---------- */
+.crack .n{font-family:var(--mono);color:var(--accent);font-size:.8em;letter-spacing:.1em}
+.crack h3{margin:.35em 0 .4em}
+.crack p{font-size:.86em;color:var(--muted)}
+.pull{font-family:var(--display);font-size:clamp(18px,1.2vw + 1vh,30px);line-height:1.3;max-width:46ch;padding-left:1em;border-left:3px solid var(--accent)}
+html .pull{font-weight:400;border-left-color:var(--accent2)}
+
+/* ---------- S5 flow ---------- */
+.flow{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;position:relative}
+.flow li{position:relative;padding:0 .6em 0 0}
+.flow .dot{width:clamp(34px,3.2vw,52px);height:clamp(34px,3.2vw,52px);border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:600;background:var(--accent);color:var(--accent-ink);position:relative;z-index:1}
+.flow li::after{content:"";position:absolute;left:clamp(34px,3.2vw,52px);right:0;top:calc(clamp(34px,3.2vw,52px) / 2 - 1px);height:2px;background:var(--accent);transform-origin:left;transform:scaleX(0);transition:transform .7s var(--ease);transition-delay:calc(var(--d) * 65ms + 450ms)}
+.flow li:last-child::after{display:none}
+.slide.in .flow li::after{transform:scaleX(1)}
+.flow h3{margin:.8em 0 .3em}
+.flow p{font-size:.82em;color:var(--muted);padding-right:.6em}
+
+/* ---------- S6 timeline ---------- */
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(8px,1.5vh,16px)}
+.tl li{display:grid;grid-template-columns:7.2em minmax(0,1fr);gap:1em;align-items:start}
+.tl time{font-family:var(--mono);font-size:.84em;font-weight:600;padding-top:.2em;color:var(--accent)}
+.tl .who{font-family:var(--mono);font-size:.7em;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tl li.trig .card{border-color:var(--pg-danger)}
+
+/* ---------- S7 planner ---------- */
+.plan{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:clamp(10px,1.2vw,18px);align-items:center}
+.plan .arrow{font-size:1.8em;color:var(--accent)}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.3em .9em;font-size:.86em}
+.kv dt{font-family:var(--mono);font-size:.82em;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:.15em}
+.kv dd{margin:0}
+.ticks-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4em;font-size:.86em}
+.ticks-list li{display:flex;gap:.6em;align-items:baseline}
+.ticks-list li::before{content:"✓";color:var(--ok);font-weight:700}
+.vs .k{margin-bottom:.4em}
+.vs .tag{font-family:var(--mono);font-size:.72em;padding:.1em .5em;border-radius:var(--radius);background:var(--accent);color:var(--accent-ink);margin-left:.4em}
+.disclaim{font-size:.78em;color:var(--muted);max-width:80ch}
+
+/* ---------- S8 sim ---------- */
+.sim{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:clamp(12px,1.6vw,24px);align-items:start}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45em}
+.steps li{display:grid;grid-template-columns:4.4em minmax(0,1fr);gap:.8em;padding:.55em .8em;border-radius:var(--radius);border:1px solid transparent;opacity:.42;transition:opacity .35s,background .35s,border-color .35s}
+.steps li time{font-family:var(--mono);font-size:.82em;font-variant-numeric:tabular-nums;padding-top:.1em}
+.steps li b{display:block;font-size:.95em}
+.steps li span{font-size:.8em;color:var(--muted)}
+.steps li.done{opacity:.75}
+.steps li.now{opacity:1;background:var(--card);border-color:var(--accent)}
+.steps li.skip{opacity:.2;text-decoration:line-through}
+.simclock{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:.8em;color:var(--muted)}
+.simclock b{font-size:1.5em;color:var(--ink);font-variant-numeric:tabular-nums}
+.simbtns{display:flex;flex-wrap:wrap;gap:.5em}
+.log{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:.74em;display:flex;flex-direction:column;gap:.3em;max-height:9.5em;overflow:auto}
+.log li{display:grid;grid-template-columns:5.2em minmax(0,1fr);gap:.6em;animation:logIn .4s var(--ease)}
+.log li time{color:var(--accent)}
+@keyframes logIn{from{opacity:0;transform:translateY(6px)}}
+
+/* ---------- S9 features ---------- */
+.feat{cursor:pointer;display:flex;flex-direction:column;gap:.3em;transition:transform .25s var(--ease),background .25s,border-color .25s;text-align:left}
+.feat .L{font-family:var(--display);font-size:1.6em;line-height:1;color:var(--accent);font-weight:400}
+html .feat .L{font-weight:600}
+.feat h3{font-size:.9em}
+.feat p{font-size:.74em;color:var(--muted);line-height:1.4}
+.feat:hover,.feat:focus-visible,.feat.sel{transform:translateY(-3px);border-color:var(--accent)}
+html .feat.sel{background:rgba(255,176,74,.1)}
+
+/* ---------- S10 objectives ---------- */
+.obj{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);gap:clamp(16px,2.4vw,40px);align-items:start}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.5em;font-size:.88em}
+.checks li{display:grid;grid-template-columns:1.6em minmax(0,1fr);gap:.7em;align-items:start}
+.checks .box{width:1.4em;height:1.4em;border:2px solid var(--accent);border-radius:calc(var(--radius) / 2);display:grid;place-items:center;margin-top:.05em}
+.checks .box::after{content:"✓";font-weight:800;font-size:.85em;color:var(--accent);transform:scale(0);transition:transform .4s cubic-bezier(.3,1.6,.5,1);transition-delay:calc(var(--d) * 160ms + 500ms)}
+.slide.in .checks .box::after{transform:scale(1)}
+
+/* ---------- S11 users ---------- */
+.role .ic{width:2.6em;height:2.6em;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);margin-bottom:.6em}
+.role .ic svg{width:58%;height:58%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.role p{font-size:.86em;color:var(--muted);margin-top:.3em}
+.lst{margin:0;padding-left:1.1em;font-size:.88em;display:flex;flex-direction:column;gap:.2em}
+
+/* ---------- S12 stack ---------- */
+.stack{display:grid;grid-template-columns:minmax(0,1fr) 2.4em minmax(0,1.15fr) 2.4em minmax(0,1fr);align-items:center;gap:.4em}
+.stack .col{display:flex;flex-direction:column;gap:.6em}
+.stack .col>.k{font-family:var(--mono);font-size:.72em;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.stack .card h3{font-size:.95em}
+.stack .card p{font-size:.78em;color:var(--muted);margin-top:.2em}
+.pipe{height:2px;background:var(--accent);position:relative;overflow:visible}
+.pipe::after{content:"";position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--accent);animation:flowdot 1.8s linear infinite}
+@keyframes flowdot{from{left:-5px}to{left:calc(100% - 5px)}}
+.later{display:flex;gap:.6em;flex-wrap:wrap;align-items:center;font-size:.86em}
+
+/* ---------- S13 forward ---------- */
+.ben .big{font-family:var(--display);font-size:1.25em;line-height:1.15;margin-bottom:.3em}
+.ben p{font-size:.84em;color:var(--muted)}
+
+/* ---------- S2 day chart ---------- */
+.chartcard{display:flex;flex-direction:column;gap:.4em}
+.daychart{height:clamp(112px,17vh,220px);width:100%}
+.wrap.cover{gap:clamp(8px,1.5vh,22px)}
+.daychart svg{display:block}
+.daychart text{font-family:var(--mono);font-size:12px;fill:var(--muted)}
+.daychart .bl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;fill:var(--ink);opacity:.55}
+.daychart .gl{stroke:var(--line);stroke-dasharray:3 4}
+.daychart .dz{fill:var(--accent);fill-opacity:.07;stroke:var(--accent);stroke-opacity:.45;stroke-dasharray:4 4}
+.daychart .dzl{fill:var(--accent);font-weight:500}
+.daychart .dayline{fill:none;stroke:var(--ink);stroke-width:2.5;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1.8s var(--ease) .7s}
+.slide.in .daychart .dayline{stroke-dashoffset:0}
+.daychart .pt{fill:var(--ink);opacity:0;transition:opacity .4s 2s}
+.slide.in .daychart .pt{opacity:.8}
+.daychart .pk{fill:var(--accent);stroke:var(--bg);stroke-width:2}
+.daychart .pkl{fill:var(--accent);font-weight:500;font-size:12px}
+
+/* ---------- S4 without vs with ---------- */
+.vs{display:flex;flex-direction:column;gap:.7em}
+.vs-row{display:grid;grid-template-columns:11.5em minmax(0,1fr);gap:1.2em;align-items:center;padding:.9em 1.2em;border-radius:var(--radius);background:var(--card);border:1px solid var(--card-line)}
+.vs-row.with{border-color:var(--accent);background:rgba(32,17,9,.85)}
+.vs-lab b{display:block;font-family:var(--display);font-weight:400;font-size:1.3em;line-height:1.1}
+.vs-row.with .vs-lab b{color:var(--accent)}
+.vs-lab span{display:block;margin-top:.3em;font-family:var(--mono);font-size:.68em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.vs-steps{list-style:none;margin:0;padding:0;display:flex}
+.vs-steps li{flex:1;position:relative;padding:1.2em 1em 0 0;font-size:.84em;line-height:1.35}
+.vs-steps li::before{content:"";position:absolute;top:.2em;left:0;width:11px;height:11px;border-radius:50%;background:var(--muted)}
+.vs-steps li::after{content:"";position:absolute;top:calc(.2em + 5px);left:17px;right:6px;height:2px;background:var(--line)}
+.vs-steps li:last-child::after{display:none}
+.vs-steps time{display:block;font-family:var(--mono);font-size:.82em;color:var(--muted);margin-bottom:.1em}
+.without li.end{font-weight:600}
+.without li.end::before{background:var(--bad)}
+.with .vs-steps li::before{background:var(--accent)}
+.with .vs-steps li::after{background:var(--accent);opacity:.45}
+.with li.end{font-weight:600}
+.with li.end::before{background:var(--ok)}
+.crack h3{font-size:.95em}
+
+/* ---------- S14 alignment ---------- */
+.pillar{display:flex;flex-direction:column;gap:.45em}
+.pillar .pw{font-family:var(--display);font-size:clamp(30px,2.2vw + 1.4vh,54px);font-weight:600;line-height:1;color:var(--accent);letter-spacing:-.02em}
+.pillar p{font-size:.9em;color:var(--muted);margin-top:.3em}
+.why{display:flex;flex-wrap:wrap;gap:.4em 1.6em;align-items:baseline;font-size:.86em}
+.why span:not(.k)::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:.55em;vertical-align:.1em}
+.ask{display:block;color:var(--accent);margin-top:.25em}
+.closing{font-family:var(--display);font-size:clamp(20px,1.1vw + 1.1vh,30px);line-height:1.3;max-width:58ch;padding-top:.7em;border-top:1px solid var(--line)}
+.pcap{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--muted);padding:4px 12px;border-radius:999px;background:rgba(14,9,7,.85);border:1px solid var(--card-line)}
+
+/* emphasis: the serif's real italic in amber */
+html .fil,html .feat .L,.vs-row.with .vs-lab b{font-style:normal}
+html .hot{font-style:italic;color:var(--accent);font-weight:inherit}
+.pillar .pw{font-style:italic;font-weight:400;letter-spacing:-.01em}
+.ask{font-style:italic;color:var(--accent);font-weight:400}
+
+/* text stays readable in front of the sun: a soft dark halo on loose text */
+.slide h1,.slide h2,.slide .eyebrow,.slide .lead,.slide .fil,.readout,.why,.closing,.disclaim,.slide .wrap>p,.vs-lab,.cover-foot .team{
+  text-shadow:0 1px 2px rgba(0,0,0,.65),0 0 8px rgba(10,7,6,.6)}
+
+/* ---------- larger, comfortable slide text: nothing below ~0.8em of the base ---------- */
+body{line-height:1.55}
+.eyebrow{font-size:.8em;letter-spacing:.16em}
+.tiny{font-size:.8em}.small{font-size:.92em}
+.card .k,.readout .k,.stack .col>.k{font-size:.78em;letter-spacing:.15em}
+.chip{font-size:.86em}.fil span{font-size:.78em}
+.stat p{font-size:.9em}.stat .src{font-size:.74em}
+.ctrl label{font-size:.84em}.btn{font-size:.88em}.gauge-l{font-size:.74em}
+.crack p{font-size:.9em}.flow p{font-size:.88em}.tl .who{font-size:.76em}
+.kv,.ticks-list{font-size:.92em}.disclaim{font-size:.84em}
+.steps li span{font-size:.86em}.simclock{font-size:.84em}.log{font-size:.8em}
+.feat p{font-size:.84em}.checks{font-size:.92em}.role p{font-size:.92em}.lst{font-size:.92em}
+.stack .card p{font-size:.86em}.later{font-size:.9em}
+.vs-lab span{font-size:.74em}.vs-steps li{font-size:.9em}.why{font-size:.9em}
+.pillar p{font-size:.95em}
+.lead,p{max-width:62ch}
+.wrap>p.small{max-width:90ch}
+
+/* ---------- simulation control box: compact but clear ---------- */
+.simbox{display:flex;flex-direction:column;gap:.7em;padding:clamp(12px,1.5vh,18px) clamp(14px,1.2vw,18px)}
+.simbox .simclock{font-size:.76em}
+.simbox .simclock b{font-size:1.25em}
+.simbox .btn{font-size:.8em;padding:.42em .85em}
+.simbox .simbtns{gap:.45em}
+.simbox .k{font-size:.72em}
+.simbox .log{font-size:.74em;max-height:8.5em}
+
+/* ---------- smoothness: nothing animates where it can't be seen ---------- */
+.slide:not(.active) *,.slide:not(.active) *::before,.slide:not(.active) *::after,.phone .scr:not(.on) *,.phone.off *{animation-play-state:paused}
+
+/* ---------- rail ---------- */
+.rail{position:fixed;top:0;right:0;bottom:0;width:var(--rail-w);z-index:20;display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:calc(14px + env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) calc(14px + env(safe-area-inset-bottom,0px)) 0;border-left:1px solid var(--line)}
+html .rail{background:rgba(10,7,6,.72)}
+.rail .clock{font-family:var(--mono);font-size:11px;letter-spacing:.06em;opacity:.8;font-variant-numeric:tabular-nums}
+.rail .hiv{font-family:var(--display);font-size:24px;font-weight:400;line-height:1;font-variant-numeric:tabular-nums;transition:color .5s}
+.rail .catl{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;text-align:center;line-height:1.2;white-space:nowrap;opacity:.85}
+.tube{position:relative;flex:1;width:8px;border-radius:8px;background:var(--line);margin:8px 0}
+.tube .fill{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(to top,#7fd3a0,var(--pg-caution) 30%,var(--pg-xcaution) 55%,var(--pg-danger) 78%,var(--pg-xdanger));clip-path:inset(calc(100% - var(--p,0%)) 0 0 0 round 12px);transition:clip-path .9s var(--ease)}
+.tube button{position:absolute;left:50%;width:26px;height:16px;transform:translate(-50%,-50%);border:0;background:transparent;cursor:pointer;padding:0}
+.tube button::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:var(--ink);opacity:.5;transition:transform .3s,opacity .3s}
+.tube button.on::after{opacity:1;transform:translate(-50%,-50%) scale(1.7);box-shadow:0 0 0 3px var(--bg)}
+.tube button span{position:absolute;right:calc(100% + 6px);top:50%;transform:translateY(-50%);white-space:nowrap;font-family:var(--mono);font-size:11px;background:var(--ink);color:var(--bg);padding:.25em .6em;border-radius:3px;opacity:0;pointer-events:none;transition:opacity .2s}
+.tube button:hover span,.tube button:focus-visible span{opacity:1}
+.bulb{width:30px;height:30px;border-radius:50%;background:var(--bulb,var(--pg-caution));box-shadow:0 0 0 4px var(--bg),0 0 24px var(--bulb,transparent);margin-top:-14px;transition:background .6s,box-shadow .6s}
+.count{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums;opacity:.85}
+
+/* ---------- top-left controls ---------- */
+.dock{position:fixed;z-index:20;top:calc(14px + env(safe-area-inset-top,0px));left:calc(14px + env(safe-area-inset-left,0px));display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tools{display:flex;gap:4px}
+.tools button{width:32px;height:32px;border-radius:50%;border:1px solid var(--card-line);background:var(--card);cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:600;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.hint{position:fixed;z-index:20;left:max(var(--gut),env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink);transition:opacity .6s;display:flex;gap:1.1em;flex-wrap:wrap;padding:6px 14px;border-radius:999px;background:rgba(14,9,7,.8);border:1px solid var(--card-line);box-shadow:0 6px 18px -12px rgba(0,0,0,.7)}
+.hint kbd{font-family:inherit;border:1px solid var(--line);border-radius:3px;padding:0 .35em}
+.hint.gone{opacity:0}
+
+/* ---------- notes + overview ---------- */
+.notes{position:fixed;z-index:25;left:0;right:var(--rail-w);bottom:0;height:var(--notes-h);
+  padding:10px calc(var(--gut) + 4px) calc(10px + env(safe-area-inset-bottom,0px)) max(calc(var(--gut) + 4px),env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:6px;
+  background:rgba(12,8,6,.96);border-top:1px solid var(--line);box-shadow:0 -14px 30px -26px rgba(0,0,0,.9)}
+.nhead{display:flex;align-items:center;gap:12px;min-height:26px}
+.notes .k{flex:1;min-width:0;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nhint{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted);white-space:nowrap}
+#nText{flex:1;min-height:0;overflow:auto;font-size:.72em;line-height:1.5;max-width:none;padding-right:2px;color:#e9dccb;
+  scrollbar-width:thin;scrollbar-color:rgba(255,232,205,.22) transparent}
+#nText::-webkit-scrollbar{width:4px}#nText::-webkit-scrollbar-thumb{background:rgba(255,232,205,.22);border-radius:4px}#nText::-webkit-scrollbar-track{background:transparent}
+.notes .x{flex:none;width:26px;height:26px;display:grid;place-items:center;cursor:pointer;padding:0;
+  border:1px solid var(--card-line);background:transparent;border-radius:50%;font-size:15px;line-height:1;color:var(--ink)}
+.notes .x:hover,.notes .x:focus-visible{border-color:var(--accent);color:var(--accent)}
+@media (max-width:1000px){.nhint{display:none}}
+
+body.notes-open{--phone-h:min(calc(74vh - var(--notes-h)),600px);--phone-w:calc(var(--phone-h) * .49)}
+body.notes-open .slide{padding-bottom:calc(var(--notes-h) + 18px)}
+body.notes-open .phone{top:calc(50% - var(--notes-h) / 2)}
+body.notes-open .hint{opacity:0;pointer-events:none}
+.tools button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.overview{position:fixed;inset:0;z-index:40;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  padding:calc(70px + env(safe-area-inset-top,0px)) max(var(--gut),env(safe-area-inset-right,0px)) 40px max(var(--gut),env(safe-area-inset-left,0px));overflow:auto}
+.overview .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));grid-auto-rows:1fr;align-items:stretch;gap:14px;max-width:1320px;margin:0 auto}
+.overview button{text-align:left;cursor:pointer;height:100%;min-width:0;max-width:100%;display:flex;flex-direction:column;gap:6px;padding:14px 16px;transition:border-color .2s,transform .2s,background .2s}
+.overview button:hover,.overview button:focus-visible{border-color:var(--accent);transform:translateY(-2px)}
+.overview button .k{font-family:var(--mono);font-size:.74em}
+.overview button .tiny{display:block;margin-top:auto;font-size:.76em;line-height:1.4}
+.ovsw{display:block;height:10px;border-radius:6px;position:relative;margin-bottom:6px}
+.ovsw i{position:absolute;top:50%;right:12%;width:8px;height:8px;border-radius:50%;transform:translateY(-50%)}
+.overview button b{font-family:var(--display);font-weight:var(--h-weight);font-size:1.12em;line-height:1.15;text-transform:var(--h-case)}
+.overview button.cur{outline:2px solid var(--accent);outline-offset:2px}
+.overview h2{max-width:1320px;margin:0 auto 18px;font-size:1.6em}
+
+
+/* ---------- phone ---------- */
+.phone{position:fixed;z-index:5;right:calc(var(--rail-w) + var(--gut) * .8);top:50%;height:var(--phone-h);width:var(--phone-w);
+  transform:translateY(-50%);transition:transform .9s var(--ease),opacity .6s;font-family:var(--body)}
+.phone.off{transform:translate(calc(100% + var(--gut) * 2),-50%) rotate(9deg);opacity:0;pointer-events:none}
+.phone .body{position:absolute;inset:0;border-radius:calc(var(--phone-w) * .16);background:var(--phone-frame);padding:calc(var(--phone-w) * .035);
+  box-shadow:0 0 0 1px rgba(255,232,205,.12) inset,0 0 60px -10px rgba(255,140,50,.25),0 40px 80px -30px rgba(0,0,0,.8)}
+.screen{position:relative;height:100%;border-radius:calc(var(--phone-w) * .125);overflow:hidden;background:var(--app-bg);color:var(--app-ink);font-size:calc(var(--phone-h) * .0205);line-height:1.35}
+.screen::before{content:"";position:absolute;top:1.6%;left:50%;width:30%;height:3.6%;border-radius:20px;background:#000;transform:translateX(-50%);z-index:5}
+.sbar{position:absolute;top:0;left:0;right:0;height:7.5%;display:flex;justify-content:space-between;align-items:center;padding:0 9%;font-weight:600;font-size:.9em;z-index:4}
+.sbar i{font-style:normal;letter-spacing:.1em;font-size:.8em}
+.scr{position:absolute;inset:0;padding:12% 6.5% 6%;display:flex;flex-direction:column;gap:.62em;opacity:0;transform:translateY(5%) scale(.98);transition:opacity .45s,transform .55s var(--ease);pointer-events:none}
+.scr.on{opacity:1;transform:none;pointer-events:auto}
+.a-k{font-size:.72em;letter-spacing:.1em;text-transform:uppercase;color:var(--app-muted);font-weight:600}
+.a-h{font-size:1.25em;font-weight:700;line-height:1.15}
+.a-row{display:flex;justify-content:space-between;align-items:center;gap:.5em}
+.a-pill{font-size:.7em;font-weight:700;padding:.25em .6em;border-radius:99px;border:1px solid var(--app-line)}
+.a-card{background:var(--app-card);border-radius:.9em;padding:.65em .75em;border:1px solid var(--app-line);font-size:.86em}
+.a-big{font-size:3.6em;font-weight:800;line-height:.95;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.a-bars{display:flex;align-items:flex-end;gap:3%;height:5.2em;padding-top:.3em}
+.a-bars div{flex:1;border-radius:3px 3px 0 0;position:relative}
+.a-bars div span{position:absolute;bottom:-1.35em;left:50%;transform:translateX(-50%);font-size:.6em;color:var(--app-muted)}
+.a-src{font-size:.66em;color:var(--app-muted);line-height:1.4;margin-top:auto}
+.a-src u{color:var(--app-accent)}
+.a-btn{display:block;width:100%;border:0;border-radius:.9em;padding:.85em;font-weight:700;font-size:.95em;text-align:center;cursor:pointer}
+.a-btn small{display:block;font-weight:500;font-size:.75em;opacity:.85}
+.a-ok{background:#1f9d62;color:#fff}.a-help{background:#d62f3c;color:#fff}.a-pri{background:var(--app-accent);color:#fff}.a-ghost{background:transparent;border:1px solid var(--app-line);color:var(--app-ink)}
+.a-list{display:flex;flex-direction:column;gap:.42em;font-size:.86em;margin:0;padding:0;list-style:none}
+.a-list li{display:flex;justify-content:space-between;gap:.5em;align-items:center;padding-bottom:.42em;border-bottom:1px solid var(--app-line)}
+.a-list li:last-child{border-bottom:0}
+.st{font-size:.72em;font-weight:700;padding:.15em .55em;border-radius:99px}
+.st.ok{background:#d6f5e4;color:#11603a}.st.bad{background:#ffd9dc;color:#a01622}.st.wait{background:#ffeec2;color:#7a5200}
+.lock{background:linear-gradient(170deg,#2b1b4f,#a3375c 55%,#f08a3c);color:#fff}
+html .lock{background:linear-gradient(170deg,#3a2d63,#c4567a 55%,#ffb76b)}
+.l-time{font-size:4.2em;font-weight:300;text-align:center;line-height:1;margin-top:6%;letter-spacing:-.02em}
+.l-date{text-align:center;font-size:.85em;opacity:.85;margin-bottom:.6em}
+.notif{background:rgba(255,255,255,.88);color:#1b1726;border-radius:1.1em;padding:.7em .8em;font-size:.82em;display:flex;flex-direction:column;gap:.15em;animation:pop .6s var(--ease) both}
+.notif.dim{background:rgba(255,255,255,.62);animation-delay:.25s}
+.notif .n-h{display:flex;gap:.45em;align-items:center;font-size:.8em;color:#5f5872;font-weight:600}
+.notif .n-ic{width:1.3em;height:1.3em;border-radius:.35em;background:linear-gradient(135deg,#ff8a1f,#d62f3c)}
+.notif .n-ic.tg{background:#2aa3e0}
+@keyframes pop{from{opacity:0;transform:translateY(-12px) scale(.96)}}
+.map{position:relative;height:42%;border-radius:.9em;overflow:hidden;background:
+  linear-gradient(115deg,transparent 46%,#f5f1e6 46% 50%,transparent 50%),
+  linear-gradient(20deg,transparent 60%,#f5f1e6 60% 63%,transparent 63%),
+  repeating-linear-gradient(0deg,transparent 0 22px,rgba(0,0,0,.05) 22px 23px),
+  repeating-linear-gradient(90deg,transparent 0 22px,rgba(0,0,0,.05) 22px 23px),#cfe3c4}
+.map .pin{position:absolute;left:52%;top:46%;width:1.6em;height:1.6em;border-radius:50% 50% 50% 0;background:#d62f3c;transform:translate(-50%,-100%) rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.map .pulse{position:absolute;left:52%;top:46%;width:5em;height:5em;border-radius:50%;border:2px solid #d62f3c;transform:translate(-50%,-50%);animation:pulse 1.6s ease-out infinite}
+@keyframes pulse{from{opacity:.9;transform:translate(-50%,-50%) scale(.2)}to{opacity:0;transform:translate(-50%,-50%) scale(1.4)}}
+.banner{background:#ffeec2;color:#7a5200;border-radius:.7em;padding:.45em .7em;font-size:.8em;font-weight:600;display:none}
+.scr.remind .banner{display:block;animation:pop .5s var(--ease)}
+.big-check{width:4em;height:4em;border-radius:50%;background:#1f9d62;color:#fff;display:grid;place-items:center;font-size:1.8em;margin:14% auto .3em;animation:pop .6s var(--ease)}
+.pbar{height:.5em;border-radius:1em;background:var(--app-line);overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--app-accent);border-radius:inherit}
+.ac-bars{display:grid;grid-template-columns:repeat(5,1fr);gap:.4em;align-items:end;height:6em}
+.ac-bars div{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+.ac-bars u{display:block;width:40%;border-radius:2px 2px 0 0;background:var(--app-line)}
+.ac-bars s{display:block;width:40%;border-radius:2px 2px 0 0;background:var(--app-accent)}
+.ac-bars em{position:absolute;bottom:-1.4em;font-style:normal;font-size:.62em;color:var(--app-muted)}
+
+
+/* ---------- phone as a blueprint: line work on a grid, clearly a concept ---------- */
+.phone{--bp:#9fd3ff;--bp-dim:rgba(159,211,255,.42);--bp-ink:#e3f1ff;--bp-ok:#7fe0b0;--bp-bad:#ff8a75;
+  --app-bg:#0c1220;--app-ink:#e3f1ff;--app-muted:rgba(159,211,255,.62);--app-card:transparent;--app-line:rgba(159,211,255,.32);--app-accent:var(--accent)}
+.phone::before{content:"";position:absolute;left:0;right:0;top:-14px;height:6px;border:1px solid rgba(245,234,217,.4);border-bottom:0}
+.phone::after{content:"390";position:absolute;left:0;right:0;top:-30px;text-align:center;font:10px var(--mono);letter-spacing:.12em;color:var(--muted)}
+.phone .body{background:transparent;border:1.5px solid rgba(245,234,217,.72);box-shadow:none;padding:calc(var(--phone-w) * .03)}
+.phone .screen{font-family:var(--mono);color:var(--bp-ink);border:1px solid var(--bp-dim);background-color:#0c1220;
+  background-image:linear-gradient(rgba(159,211,255,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(159,211,255,.09) 1px,transparent 1px),
+    linear-gradient(rgba(159,211,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(159,211,255,.035) 1px,transparent 1px);
+  background-size:24px 24px,24px 24px,6px 6px,6px 6px}
+.phone .screen::before{background:transparent;border:1px solid var(--bp-dim)}
+.phone .sbar{color:var(--bp)}
+.phone .lock{background:transparent!important;color:var(--bp-ink)}
+.phone .l-time{color:var(--bp-ink)}.phone .l-date{color:var(--bp);opacity:1}
+.phone .a-k{color:var(--bp)}
+.phone .a-h{color:var(--bp-ink);font-weight:500}
+.phone .a-big{font-weight:400;color:var(--bp-ink)}
+.phone .a-card{background:transparent!important;border:1px dashed var(--bp-dim)!important;color:var(--bp-ink)!important;border-radius:4px}
+.phone .a-list li{border-bottom:1px dotted rgba(159,211,255,.3)}
+.phone .a-pill{background:transparent;border-color:var(--bp-dim);color:var(--bp-ink)}
+.phone .a-btn{background:transparent!important;border:1px solid var(--bp)!important;color:var(--bp-ink)!important;border-radius:4px;font-weight:500}
+.phone .a-ok{border-color:var(--bp-ok)!important;color:var(--bp-ok)!important}
+.phone .a-help{border-color:var(--bp-bad)!important;color:var(--bp-bad)!important}
+.phone .a-pri{border-color:var(--accent)!important;color:var(--accent)!important}
+.phone .a-bars div{background:transparent!important;border:1px solid var(--bp);border-bottom:0;border-radius:0}
+.phone .a-bars div:nth-child(n+4):nth-child(-n+7){border-color:var(--accent)}
+.phone .a-bars div span{color:var(--bp-dim)}
+.phone .a-src{color:var(--bp-dim)}.phone .a-src u{color:var(--accent)}
+.phone .st{background:transparent!important;border:1px solid currentColor;border-radius:3px}
+.phone .st.ok{color:var(--bp-ok)}.phone .st.bad{color:var(--bp-bad)}.phone .st.wait{color:var(--accent)}
+.phone .cat{background:transparent!important;border:1px solid var(--accent);color:var(--accent)!important;border-radius:3px}
+.phone .notif,.phone .notif.dim{background:transparent!important;border:1px dashed var(--bp-dim);color:var(--bp-ink)!important;border-radius:6px}
+.phone .notif .n-h{color:var(--bp)}
+.phone .notif .n-ic{background:transparent!important;border:1px solid var(--bp)}
+.phone .map{border:1px dashed var(--bp-dim);border-radius:4px;background:
+  linear-gradient(115deg,transparent 47%,var(--bp-dim) 47% 47.6%,transparent 47.6%),
+  linear-gradient(20deg,transparent 61%,var(--bp-dim) 61% 61.6%,transparent 61.6%),
+  repeating-linear-gradient(0deg,transparent 0 22px,rgba(159,211,255,.12) 22px 23px),
+  repeating-linear-gradient(90deg,transparent 0 22px,rgba(159,211,255,.12) 22px 23px)}
+.phone .map .pin{background:transparent;border:1.5px solid var(--bp-bad);box-shadow:none}
+.phone .map .pulse{border-color:var(--bp-bad)}
+.phone .banner{background:transparent!important;border:1px solid var(--accent);color:var(--accent)!important}
+.phone .big-check{background:transparent!important;border:1.5px solid var(--bp-ok);color:var(--bp-ok)!important}
+.phone .pbar{background:transparent;border:1px solid var(--bp-dim)}
+.phone .pbar i{background:repeating-linear-gradient(-45deg,var(--accent) 0 1px,transparent 1px 5px);border-right:1px solid var(--accent);border-radius:0}
+.phone .ac-bars u{background:transparent;border:1px dashed var(--bp-dim);border-bottom:0}
+.phone .ac-bars s{background:transparent;border:1px solid var(--accent);border-bottom:0}
+.phone .ac-bars em{color:var(--bp-dim)}
+.phone [style*="#d62f3c"]{color:var(--bp-bad)!important}
+.phone [style*="#f0a23a"]{border-color:var(--accent)!important}
+.anno{display:flex;align-items:center;gap:.5em;font-size:.6em;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:-.25em}
+.anno::before{content:"";width:1.8em;height:1px;background:var(--accent)}
+
+
+/* ---------- blueprint, drawn like a technical drawing ---------- */
+.phone{--bp:#8fd0ff;--bp-dim:rgba(143,208,255,.42);--rule:rgba(245,234,217,.5)}
+.phone .body{outline:1px solid rgba(245,234,217,.28);outline-offset:4px}
+.phone .body::before{content:"";position:absolute;right:-6px;top:22%;width:3px;height:9%;border:1px solid var(--rule);border-left:0;border-radius:0 2px 2px 0}
+.phone .body::after{content:"";position:absolute;left:-6px;top:17%;width:3px;height:13%;border:1px solid var(--rule);border-right:0;border-radius:2px 0 0 2px;
+  background:linear-gradient(transparent 46%,var(--rule) 46% 54%,transparent 54%)}
+.phone .screen{background-image:linear-gradient(rgba(143,208,255,.13) 1px,transparent 1px),linear-gradient(90deg,rgba(143,208,255,.13) 1px,transparent 1px),
+  linear-gradient(rgba(143,208,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(143,208,255,.045) 1px,transparent 1px)}
+.phone .screen::after{content:"";position:absolute;inset:8% 4.5% 3% 4.5%;border:1px dashed rgba(143,208,255,.22);border-radius:6px;pointer-events:none}
+.phone .reg{position:absolute;width:14px;height:14px;pointer-events:none;
+  background:linear-gradient(var(--rule),var(--rule)) center/100% 1px no-repeat,linear-gradient(var(--rule),var(--rule)) center/1px 100% no-repeat}
+.phone .reg.r1{left:-19px;top:-19px}.phone .reg.r2{right:-19px;top:-19px}.phone .reg.r3{left:-19px;bottom:-19px}.phone .reg.r4{right:-19px;bottom:-19px}
+.phone .dimv{position:absolute;left:-26px;top:0;bottom:0;width:7px;border:1px solid rgba(245,234,217,.4);border-right:0}
+.phone .dimv span{position:absolute;left:-16px;top:50%;transform:translateY(-50%) rotate(-90deg);font:10px var(--mono);letter-spacing:.12em;color:var(--muted)}
+.anno i{display:inline-grid;place-items:center;width:1.6em;height:1.6em;border:1px solid var(--accent);border-radius:50%;font-style:normal;font-size:.95em;letter-spacing:0;flex:none}
+.pcap.bpblock{display:grid;padding:0;border-radius:0;border:1px solid rgba(245,234,217,.45);background:rgba(10,7,6,.88);top:calc(100% + 12px);text-align:left;min-width:100%}
+.bpblock b,.bpblock span{padding:3px 10px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em}
+.bpblock b{font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:var(--ink)}
+.bpblock span{border-top:1px solid rgba(245,234,217,.22);color:var(--muted)}
+#bpScreen{color:var(--bp)}
+
+
+/* ---------- narrow landscape and very large screens ---------- */
+@media (max-width:1100px){:root{--phone-h:min(64vh,560px);--gut:clamp(18px,3.4vw,48px)}}
+@media (min-width:2200px){.wrap{max-width:1880px}}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion:reduce){
+  .grain{animation:none}
+  .slide .rv,.slide .w{transform:none!important;filter:none!important;transition-duration:.3s;transition-delay:0s!important}
+  .pipe::after,.map .pulse{animation:none}
+}
+
+/* ---------- phone-width: read as a scrolling page ---------- */
+@media (max-width:900px),(max-aspect-ratio:4/5){
+  body{overflow:auto}
+  .deck{position:static}
+  .slide{position:relative;visibility:visible;min-height:auto;padding:56px max(16px,env(safe-area-inset-right,0px)) 44px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
+  .slide.has-phone{padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .slide:first-child{padding-top:84px}
+  .wrap{overflow:visible;max-height:none}
+  .slide .rv,.slide .w{opacity:1!important;transform:none!important;filter:none!important}
+  .phone,.rail,.hint,.notes,.tools,.pcap{display:none!important}
+  .dock{position:absolute}
+  #bg,.veil,.grain{position:fixed}
+  .g2,.g3,.g4,.g5,.lab,.sim,.obj,.plan,.stack{grid-template-columns:minmax(0,1fr)}
+  .flow{grid-template-columns:minmax(0,1fr);gap:1em}.flow li::after{display:none}
+  .plan .arrow,.pipe{display:none}
+  .team{grid-template-columns:repeat(2,auto)}
+  .tl li{grid-template-columns:minmax(0,1fr);gap:.3em}
+  .vs-row{grid-template-columns:minmax(0,1fr)}
+  .vs-steps{flex-direction:column;gap:.6em}
+  .vs-steps li::after{display:none}
+  .steps li{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
+
+<div class="dock">
+  <div class="tools">
+    <button type="button" id="bOver" title="All slides (O)" aria-label="All slides">▦</button>
+    <button type="button" id="bNotes" title="Speaker notes (N)" aria-label="Speaker notes" aria-pressed="false">N</button>
+    <button type="button" id="bFull" title="Fullscreen (F)" aria-label="Fullscreen">⛶</button>
+  </div>
+</div>
+
+<main class="deck" id="deck">
+
+<!-- 1 COVER -->
+<section class="slide" data-title="InitWatch" data-clock="05:00" data-heat="27"
+  data-notes="Good day. We are Team 16, and our proposal is InitWatch: a heat-action and buddy check-in system for outdoor workers. This deck follows one hot workday. Watch the rail on the right: the clock and the heat index rise as we go. The 46 degrees on screen is an example forecast for 1 PM.">
+  <div class="wrap cover">
+    <h1 class="title" data-split>Init<span class="hot">Watch</span></h1>
+    <p class="lead rv" style="max-width:34ch">A heat-action and buddy check-in system for outdoor workers.</p>
+    <p class="fil rv">Walang maiiwan sa init.<span>No worker left unchecked in the heat.</span></p>
+    <div class="row rv">
+      <span class="chip">Mobile-first web app</span><span class="chip">Advance heat alerts</span><span class="chip">Buddy check-ins</span><span class="chip">Filipino + English</span>
+    </div>
+    <div class="cover-foot rv">
+      <ul class="team">
+        <li>Alvarez, John Allen</li><li>Bantayaon, Jeush Samuel L.</li><li>De Galicia, Phebe A.</li>
+        <li>Esguerra, Lyle Daniel</li><li>Ordiales, Samuel</li>
+      </ul>
+      <div class="readout">
+        <span class="k">Example forecast · heat index at 1 PM</span>
+        <b data-count="46" data-from="27">46</b><span class="deg">°C</span><span class="cat c3">Danger</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 THE HEAT -->
+<section class="slide" data-title="The heat is rising" data-clock="06:00" data-heat="29"
+  data-notes="Extreme heat is a growing danger for Filipinos who work outdoors. PAGASA defines the Danger heat index as 42 to 51 degrees. On May 20, 2026, forty areas were forecast to reach it. A strong El Niño is expected into the first half of 2027. The DOH counted 77 heat-related illness cases and 7 deaths in early 2024, and those numbers are likely undercounted. The chart shows a hot day hour by hour: four hours in the Danger range, right in the middle of a work shift.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>I</b><span>Problem or need identified</span></div>
+    <h2 data-split>The heat is rising, and outdoor workers <span class="hot">feel it first.</span></h2>
+    <div class="g4">
+      <div class="card stat rv"><div class="k">PAGASA "danger" band</div><div class="big"><span data-count="42">42</span>–51°C</div><p>Heat index forecast for 40 areas on May 20, 2026.</p><div class="src">DZRH · PAGASA</div></div>
+      <div class="card stat rv"><div class="k">Talisay, Batangas</div><div class="big"><span data-count="41">41</span>°C</div><p>Recorded Oct 22, 2026, in the "extreme caution" range.</p><div class="src">Philippine Daily Inquirer</div></div>
+      <div class="card stat rv"><div class="k">Strong El Niño</div><div class="big"><span data-count="2027" data-from="2000">2027</span></div><p>Expected to intensify and persist into the first half of 2027, with possible record heat.</p><div class="src">DOST-PAGASA · Sep 23, 2026</div></div>
+      <div class="card stat rv"><div class="k">Heat illness · Jan–Apr 2024</div><div class="big"><span data-count="77">77</span> / <span data-count="7">7</span></div><p>Cases and reported deaths. Likely undercounted: many never reach a hospital.</p><div class="src">DOH via GMA News</div></div>
+    </div>
+    <div class="card chartcard rv">
+      <div class="row" style="justify-content:space-between"><span class="k">Example day · hourly heat index</span><span class="k">Bands: PAGASA heat index categories</span></div>
+      <div class="daychart" id="dayChart"></div>
+    </div>
+    <p class="small muted rv">A construction workers' union leader called construction crews the group most exposed to extreme heat, and said official counts miss what happens on the ground.</p>
+  </div>
+</section>
+
+<!-- 3 HEAT INDEX LAB -->
+<section class="slide" data-title="Heat index lab" data-clock="07:00" data-heat="32"
+  data-notes="Try it live. Temperature alone doesn't tell the story; humidity makes it feel hotter. This is the documented calculation InitWatch uses on Open-Meteo hourly forecasts, classified with PAGASA's categories. On the right is what the app does at each level. At Danger, check-ins start on their own.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>Try it</b><span>Heat index lab</span></div>
+    <h2 data-split>Humidity turns a hot day into a <span class="hot">dangerous</span> one.</h2>
+    <div class="lab">
+      <div class="card ctrl rv">
+        <div>
+          <label for="rT">Air temperature <b><span id="vT">33</span>°C</b></label>
+          <input type="range" id="rT" min="26" max="40" step="0.5" value="33">
+        </div>
+        <div>
+          <label for="rH">Relative humidity <b><span id="vH">70</span>%</b></label>
+          <input type="range" id="rH" min="30" max="95" step="1" value="70">
+        </div>
+        <div class="presets">
+          <button type="button" class="btn" data-t="29" data-h="80">7 AM · 29°C / 80%</button>
+          <button type="button" class="btn" data-t="33" data-h="70">10 AM · 33°C / 70%</button>
+          <button type="button" class="btn" data-t="35" data-h="65">1 PM · 35°C / 65%</button>
+          <button type="button" class="btn" data-t="38" data-h="62">Extreme · 38°C / 62%</button>
+        </div>
+        <p class="tiny muted">Calculation: NWS Rothfusz regression on hourly temperature and humidity. In the app these inputs come from Open-Meteo forecasts and are labeled as forecast-derived estimates.</p>
+      </div>
+      <div class="card out rv" aria-live="polite">
+        <div class="k">Heat index (feels like)</div>
+        <div class="hi"><b id="oHI">41</b><span>°C</span></div>
+        <div><span class="cat c2" id="oCat">Extreme caution</span></div>
+        <div>
+          <div class="gauge"><i id="oMark" style="left:46%"></i></div>
+          <div class="gauge-l"><span>25</span><span>27</span><span>33</span><span>42</span><span>52</span><span>60</span></div>
+        </div>
+        <div class="act">
+          <h3 id="oActH">What InitWatch does</h3>
+          <ul id="oAct"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 THE GAP -->
+<section class="slide" data-title="The gap" data-clock="08:00" data-heat="35"
+  data-notes="Guidance already exists, but someone has to act on it during a real workday. In a reported case in Dagupan City, a worker who complained of headaches from the heat was later found dead in the site's rest area; police suspected heat stroke. Heat stroke can cause confusion and loss of consciousness, so protection cannot depend on the worker asking for help. The second row shows the same afternoon with InitWatch: a missed check-in becomes a person checking in person within fifteen minutes.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>I</b><span>Problem or need identified</span></div>
+    <h2 data-split>Knowing heat is dangerous isn't the same as <span class="hot">acting on it.</span></h2>
+    <div class="vs">
+      <div class="vs-row without rv">
+        <div class="vs-lab"><b>Without a system</b><span>A reported case · Dagupan City</span></div>
+        <ol class="vs-steps">
+          <li><time>Before</time>Complains of headaches from the extreme heat</li>
+          <li><time>Then</time>Nothing prompts anyone to check on the worker</li>
+          <li class="end"><time>Later</time>Found dead in the site's rest area; police suspected heat stroke</li>
+        </ol>
+      </div>
+      <div class="vs-row with rv">
+        <div class="vs-lab"><b>With InitWatch</b><span>Same afternoon · example</span></div>
+        <ol class="vs-steps">
+          <li><time>1:00 PM</time>Check-in sent; no answer</li>
+          <li><time>1:05 PM</time>Reminder sent</li>
+          <li><time>1:15 PM</time>Buddy checks on the worker in person</li>
+          <li class="end"><time>1:19 PM</time>Moved to shade, supervisor informed, follow-up recorded</li>
+        </ol>
+      </div>
+    </div>
+    <div class="g4">
+      <div class="card crack rv"><div class="n">01</div><h3>Rules need someone to run them</h3><p>DOLE Labor Advisory No. 8 lists water, adjusted breaks, heat-stress education and emergency steps. Someone still has to plan the shift and follow up.</p></div>
+      <div class="card crack rv"><div class="n">02</div><h3>The sick can't always ask</h3><p>Heat stroke can cause confusion and loss of consciousness (DOH).</p></div>
+      <div class="card crack rv"><div class="n">03</div><h3>New workers need time</h3><p>NIOSH: raise exposure gradually over 7–14 days, with close supervision.</p></div>
+      <div class="card crack rv"><div class="n">04</div><h3>Tools inform, they don't organize</h3><p>iHeatMap and the OSHA-NIOSH app forecast and advise; they don't run a team's shift.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 MEET INITWATCH -->
+<section class="slide has-phone" data-title="Meet InitWatch" data-clock="09:00" data-heat="38" data-phone="home"
+  data-notes="InitWatch is a mobile-first web application. It follows one continuous workflow: warn ahead, prepare a shift action plan, check on workers during high-heat hours, notify a designated buddy, and record the follow-up. On the phone is the heat outlook, with its source and update time.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>II</b><span>Brief description of the proposed solution</span></div>
+    <h2 data-split>One workflow from <span class="hot">forecast</span> to follow-up.</h2>
+    <p class="lead rv">InitWatch helps outdoor teams prepare for dangerous heat, reduce avoidable exposure, support gradual acclimatization, and make sure no worker is left unchecked.</p>
+    <ol class="flow">
+      <li class="rv"><div class="dot">1</div><h3>Warn ahead</h3><p>Hourly forecasts trigger alerts before heat turns dangerous.</p></li>
+      <li class="rv"><div class="dot">2</div><h3>Plan the shift</h3><p>Precautions fitted to tasks, exposure and each worker's history.</p></li>
+      <li class="rv"><div class="dot">3</div><h3>Check in</h3><p>Simple check-ins during high-heat hours.</p></li>
+      <li class="rv"><div class="dot">4</div><h3>Notify a buddy</h3><p>Help requests and missed check-ins reach a person.</p></li>
+      <li class="rv"><div class="dot">5</div><h3>Record follow-up</h3><p>Acknowledged, logged, and visible until resolved.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 6 BEFORE THE HEAT -->
+<section class="slide has-phone" data-title="Before the heat" data-clock="10:00" data-heat="41" data-phone-cycle="alert,brief"
+  data-notes="Before heat becomes dangerous, InitWatch sends three kinds of alerts: an evening-before notice to supervisors, a morning briefing to workers, and a reminder before each high-heat period. When the forecast heat index reaches PAGASA's Danger level, check-ins begin automatically.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>B</b><span>Advance heat alerts</span><span class="muted">Example times</span></div>
+    <h2 data-split>Warnings arrive <span class="hot">before</span> the heat does.</h2>
+    <ol class="tl">
+      <li class="rv"><time>6:00 PM</time><div class="card"><div class="who">Day before · Supervisor</div><h3>Evening-before alert</h3><p class="small muted">Tomorrow's danger window and which workers need extra precautions, in time to adjust the plan.</p></div></li>
+      <li class="rv"><time>6:00 AM</time><div class="card"><div class="who">Shift day · Workers</div><h3>Morning briefing</h3><p class="small muted">Peak hours, assigned buddy, water and shade locations, in Filipino or English.</p></div></li>
+      <li class="rv"><time>10:30 AM</time><div class="card"><div class="who">Everyone</div><h3>Pre-peak reminder</h3><p class="small muted">Sent before each high-heat period.</p></div></li>
+      <li class="rv trig"><time>11:00 AM</time><div class="card"><div class="who">Automatic</div><h3>Forecast hits Danger → check-ins start</h3><p class="small muted">No one has to remember to turn them on.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 7 PLAN THE SHIFT -->
+<section class="slide" data-title="Plan the shift" data-clock="11:00" data-heat="43"
+  data-notes="Before a shift, the supervisor enters the work area, hours, tasks and exposure conditions. InitWatch combines the forecast with each worker's recorded exposure history to suggest practical precautions. The acclimatization tracker means a new worker and a veteran get different plans on the same forecast.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>C · D</b><span>Shift planner and acclimatization tracker</span></div>
+    <h2 data-split>Same forecast. <span class="hot">Different plan</span> for each worker.</h2>
+    <div class="plan">
+      <div class="card rv">
+        <div class="k">Supervisor enters · example</div>
+        <dl class="kv" style="margin:.6em 0 0">
+          <dt>Area</dt><dd>Campus grounds, north field</dd>
+          <dt>Hours</dt><dd>7:00 AM – 4:00 PM</dd>
+          <dt>Tasks</dt><dd>Mowing (heavy), pruning (moderate)</dd>
+          <dt>Exposure</dt><dd>Direct sun, strenuous work</dd>
+        </dl>
+      </div>
+      <div class="arrow rv" aria-hidden="true">→</div>
+      <div class="card rv">
+        <div class="k">InitWatch suggests</div>
+        <ul class="ticks-list" style="margin-top:.6em">
+          <li>Move mowing to 7–10 AM, the lower-heat window</li>
+          <li>Shaded rest after 11 AM, scheduled by the supervisor</li>
+          <li>Water station at the north shed confirmed</li>
+          <li>Buddy pairs assigned for check-ins</li>
+        </ul>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card vs rv"><div class="k">Jun · new to outdoor work <span class="tag">Day 3</span></div><p class="small">Gradual exposure, closer supervision and extra buddy checks. Day 2 was interrupted, so it's flagged for supervisor review.</p></div>
+      <div class="card vs rv"><div class="k">Mang Ben · 6 years on grounds crew</div><p class="small">Standard plan for the day's forecast, and he is Jun's assigned buddy.</p></div>
+    </div>
+    <p class="disclaim rv">Heat index is an initial screening indicator. Guidance supports supervisor decisions; it does not diagnose illness or certify acclimatization from a day count. Occupational-safety review is planned before field use.</p>
+  </div>
+</section>
+
+<!-- 8 SIMULATION -->
+<section class="slide has-phone" data-title="Nobody left unchecked" data-clock="13:00" data-heat="46" data-phone="checkin" data-sim
+  data-notes="This is the heart of the system. Run the simulation. An unanswered check-in gets a reminder first, because it might be a signal problem. After the grace period, the buddy is asked to check in person. If the buddy doesn't acknowledge, it escalates to the supervisor. A help request skips the waiting and shares a one-time location.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>E · F · G</b><span>Check-ins, SOS and buddy follow-up</span></div>
+    <h2 data-split>Walang maiiwan. <span class="hot">Nobody left unchecked.</span></h2>
+    <div class="sim">
+      <div class="rv">
+        <ol class="steps" id="steps">
+          <li data-k="sent"><time>1:00 PM</time><div><b>Check-in sent to Jun</b><span>Heat index 46°C, Danger</span></div></li>
+          <li data-k="remind"><time>1:05 PM</time><div><b>No answer → reminder</b><span>It could be a weak signal, so ask again first</span></div></li>
+          <li data-k="buddy"><time>1:15 PM</time><div><b>Grace period over → buddy alerted</b><span>Mang Ben is asked to check on Jun in person</span></div></li>
+          <li data-k="esc"><time>1:25 PM</time><div><b>Not acknowledged → supervisor</b><span>Escalates to Foreman Rey</span></div></li>
+          <li data-k="done"><time>—</time><div><b>Follow-up recorded</b><span>Saved to the incident record</span></div></li>
+        </ol>
+      </div>
+      <div class="card rv simbox">
+        <div class="simclock"><span>Simulated · 1 second = 1 minute</span><b id="simClock">1:00 PM</b></div>
+        <div class="simbtns">
+          <button type="button" class="btn" id="sOk">Jun answers "Okay ako"</button>
+          <button type="button" class="btn" id="sAck" disabled>Mang Ben acknowledges</button>
+          <button type="button" class="btn" id="sSos">Jun taps "I need help"</button>
+          <button type="button" class="btn primary" id="sReplay">Replay</button>
+        </div>
+        <div class="k">Incident record</div>
+        <ul class="log" id="simLog"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 FEATURES -->
+<section class="slide has-phone" data-title="Key features" data-clock="14:00" data-heat="45" data-phone="home" data-features
+  data-notes="Ten features support the workflow. Hover over any of them to see it on the phone. On privacy: location is captured only when a worker sends a help request, with consent given at registration. It is never tracked continuously and is deleted at the end of the shift unless attached to an incident record.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>V</b><span>Proposed key features</span><span class="muted">Hover a feature to see it on the phone</span></div>
+    <h2 data-split>Ten features, <span class="hot">one workday.</span></h2>
+    <div class="g5" id="feats">
+      <button type="button" class="card feat rv" data-p="home"><span class="L">A</span><h3>Location-based heat outlook</h3><p>PAGASA categories, sources and update times.</p></button>
+      <button type="button" class="card feat rv" data-p="alert"><span class="L">B</span><h3>Advance heat alerts</h3><p>Evening, morning and pre-peak notices.</p></button>
+      <button type="button" class="card feat rv" data-p="plan"><span class="L">C</span><h3>Shift heat-action planner</h3><p>Lower-heat task windows, rest, water, shade.</p></button>
+      <button type="button" class="card feat rv" data-p="accl"><span class="L">D</span><h3>Guided acclimatization tracker</h3><p>Gradual exposure using NIOSH guidance.</p></button>
+      <button type="button" class="card feat rv" data-p="checkin"><span class="L">E</span><h3>Worker check-ins and assistance requests</h3><p>Simple answers, no lengthy forms.</p></button>
+      <button type="button" class="card feat rv" data-p="sos"><span class="L">F</span><h3>SOS location share</h3><p>One-time pin, never continuous tracking.</p></button>
+      <button type="button" class="card feat rv" data-p="buddy"><span class="L">G</span><h3>Buddy notifications and follow-up</h3><p>Acknowledged, or escalated to the supervisor.</p></button>
+      <button type="button" class="card feat rv" data-p="dash"><span class="L">H</span><h3>Supervisor action dashboard</h3><p>Shifts, progress, unresolved requests.</p></button>
+      <button type="button" class="card feat rv" data-p="incident"><span class="L">I</span><h3>Incident record</h3><p>Exportable for DOLE documentation.</p></button>
+      <button type="button" class="card feat rv" data-p="guide"><span class="L">J</span><h3>Filipino and English safety guide</h3><p>Warning signs and first steps, offline.</p></button>
+    </div>
+    <p class="small muted rv">Location is captured only at the moment of a help request, with consent at registration. If it's unavailable, the registered worksite is sent instead. Shared locations are deleted at the end of the shift unless attached to an incident record.</p>
+  </div>
+</section>
+
+<!-- 10 OBJECTIVES -->
+<section class="slide" data-title="Objectives" data-clock="15:00" data-heat="42"
+  data-notes="Our general objective is to develop and evaluate a localized heat-action system. The eight specific objectives map directly onto the features you just saw, ending with a small pilot and controlled scenarios to evaluate it.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>III</b><span>General objectives</span></div>
+    <div class="obj">
+      <div style="display:flex;flex-direction:column;gap:1.2em">
+        <h2 data-split>What we set out to <span class="hot">build and prove.</span></h2>
+        <p class="lead rv">To develop and evaluate a localized heat-action system that helps outdoor work teams prepare for dangerous heat and reduce avoidable heat exposure through advance alerts, shift planning, guided acclimatization tracking, and timely buddy follow-up.</p>
+      </div>
+      <div class="card rv">
+        <div class="k" style="margin-bottom:.8em">Specific objectives</div>
+        <ul class="checks">
+          <li style="--d:0"><span class="box"></span><span>Present clear, location-based heat information with sources and update times.</span></li>
+          <li style="--d:1"><span class="box"></span><span>Send forecast-based alerts ahead of high-heat periods, and start check-ins automatically at the Danger level.</span></li>
+          <li style="--d:2"><span class="box"></span><span>Generate shift action plans from schedules, task intensity, exposure conditions and recent exposure history.</span></li>
+          <li style="--d:3"><span class="box"></span><span>Track acclimatization with gradual exposure planning and supervisor review for new or returning workers.</span></li>
+          <li style="--d:4"><span class="box"></span><span>Provide simple check-ins and help requests with one-time location sharing, linked to buddies and supervisors.</span></li>
+          <li style="--d:5"><span class="box"></span><span>Give supervisors a dashboard of precautions, progress, unresolved notifications, follow-up and exportable records.</span></li>
+          <li style="--d:6"><span class="box"></span><span>Deliver Filipino and English safety guidance, with selected content available offline.</span></li>
+          <li style="--d:7"><span class="box"></span><span>Evaluate usability, understanding, completed precautions, and alert and follow-up performance in a small pilot and controlled scenarios.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 USERS -->
+<section class="slide" data-title="Who it's for" data-clock="16:00" data-heat="38"
+  data-notes="Our primary beneficiaries are outdoor workers in small, supervised teams. The system has three kinds of users: workers, designated buddies, and supervisors. The pilot will involve one outdoor team in one locality. Students, commuters, drivers, delivery riders and vendors are future beneficiaries.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>IV</b><span>Target users or beneficiaries</span></div>
+    <h2 data-split>Built for <span class="hot">small outdoor teams</span> that look out for each other.</h2>
+    <div class="g3">
+      <div class="card role rv">
+        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><path d="M7 7.5h10"/></svg></div>
+        <h3>Workers</h3><p>Get shift guidance and alerts, answer check-ins, and request help without lengthy forms.</p>
+      </div>
+      <div class="card role rv">
+        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="2.8"/><circle cx="16.5" cy="8" r="2.8"/><path d="M2.5 20v-1.5a5.5 5.5 0 0 1 11 0V20"/><path d="M13.5 15a5.5 5.5 0 0 1 8 3.5V20"/></svg></div>
+        <h3>Designated buddies</h3><p>Check on a coworker, respond to notifications, and record what they did.</p>
+      </div>
+      <div class="card role rv">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+        <h3>Foremen and supervisors</h3><p>Organize shifts, review acclimatization, and coordinate protective measures.</p>
+      </div>
+    </div>
+    <div class="g3">
+      <div class="card rv"><div class="k">Primary beneficiaries</div><ul class="lst" style="margin-top:.5em"><li>Campus grounds and maintenance personnel</li><li>Construction crews</li><li>Agricultural work groups</li></ul></div>
+      <div class="card rv"><div class="k">Pilot scope</div><p class="small" style="margin-top:.5em">One outdoor work team in one locality, recruited during development. One complete worker–buddy–supervisor workflow.</p></div>
+      <div class="card rv"><div class="k">Future beneficiaries</div><p class="small" style="margin-top:.5em">Students, commuters, drivers, and solo outdoor workers such as delivery riders and vendors, after the worker prototype is evaluated.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 TECH -->
+<section class="slide" data-title="Under the hood" data-clock="17:00" data-heat="33"
+  data-notes="The frontend is React and TypeScript, delivered as a Progressive Web App so selected guidance works offline. The backend is Node.js with PostgreSQL. Forecasts come from Open-Meteo and are classified with PAGASA's categories. Notifications go in-app and through a Telegram bot, with Messenger planned after Meta's app review. No custom hardware is needed. SMS, more user modes and wearables are later extensions.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>VI</b><span>Proposed technologies or tools</span></div>
+    <h2 data-split>Simple, open tools. <span class="hot">No custom hardware.</span></h2>
+    <div class="stack">
+      <div class="col">
+        <span class="k rv">Weather in</span>
+        <div class="card rv"><h3>Open-Meteo</h3><p>Hourly temperature and humidity → documented heat-index calculation.</p></div>
+        <div class="card rv"><h3>PAGASA</h3><p>Heat index categories, advisories and iHeatMap as official reference. Sources always labeled.</p></div>
+      </div>
+      <div class="pipe rv" aria-hidden="true"></div>
+      <div class="col">
+        <span class="k rv">Core</span>
+        <div class="card rv"><h3>Node.js + PostgreSQL</h3><p>Team profiles, shift plans, exposure logs, check-ins, incidents, follow-ups.</p></div>
+        <div class="card rv"><h3>Scheduled server tasks</h3><p>Advance alerts, check-ins and overdue notifications.</p></div>
+        <div class="card rv"><h3>Rule-based guidance</h3><p>Transparent rules from published heat-prevention resources, plus supervisor review.</p></div>
+      </div>
+      <div class="pipe rv" aria-hidden="true"></div>
+      <div class="col">
+        <span class="k rv">People out</span>
+        <div class="card rv"><h3>React + TypeScript PWA</h3><p>Mobile-first, in the browser, with offline guidance.</p></div>
+        <div class="card rv"><h3>Telegram bot</h3><p>For opted-in pilot users. Facebook Messenger after Meta's app review.</p></div>
+        <div class="card rv"><h3>Browser geolocation</h3><p>One-time pin, only on a help request, with map links.</p></div>
+      </div>
+    </div>
+    <div class="later rv"><span class="muted small">Later extensions:</span><span class="chip">SMS (needs a funded channel)</span><span class="chip">More user modes</span><span class="chip">Wearable integration</span></div>
+  </div>
+</section>
+
+<!-- 13 EVALUATION -->
+<section class="slide" data-title="How we'll know it works" data-clock="18:00" data-heat="30"
+  data-notes="We will evaluate InitWatch with a small pilot of one outdoor team and with controlled scenarios. We measure alert timing, completed precautions and exposure logs, understanding of the guidance, successful routing of help requests and time to acknowledgment. We also break it on purpose: missed responses, connectivity failures and unresolved cases.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>VI</b><span>Development and evaluation scope</span></div>
+    <h2 data-split>How we'll know it <span class="hot">works.</span></h2>
+    <p class="lead rv">A small pilot with one outdoor team in one locality, plus controlled scenarios that test what happens when things go wrong.</p>
+    <div class="g2">
+      <div class="card rv"><div class="k">We will measure</div><ul class="lst" style="margin-top:.5em"><li>Alert timing</li><li>Completion of planned precautions and exposure logs</li><li>Understanding of guidance</li><li>Successful assistance routing and time to acknowledgment</li></ul></div>
+      <div class="card rv"><div class="k">We will break it on purpose</div><ul class="lst" style="margin-top:.5em"><li>Missed responses</li><li>Connectivity failures</li><li>Unresolved cases that must stay visible</li></ul></div>
+    </div>
+    <p class="disclaim rv">The prototype needs no custom hardware and focuses on one complete worker–buddy–supervisor workflow. SMS delivery, more user modes and wearables are later extensions.</p>
+  </div>
+</section>
+
+<!-- 14 ALIGNMENT -->
+<section class="slide" data-title="Build the Way Forward" data-clock="19:00" data-heat="28"
+  data-notes="Why InitWatch, and why now. It is protective: it acts before harm and makes sure a person checks on a worker who can't ask for help. It is inclusive: Filipino and English, offline guidance, on phones workers already own. And it is feasible: free and open tools, no custom hardware, scoped to a pilot we can actually run. InitWatch turns climate information into repeatable protective action, so no worker is left unchecked in the heat. The timing matters: El Niño is expected to last into 2027, and DOLE is rolling out heat advisories now. We ask to pilot InitWatch with one outdoor team this dry season. Salamat po.">
+  <div class="wrap">
+    <div class="eyebrow rv"><b>Alignment with the theme</b><span>Build the Way Forward</span></div>
+    <h2 data-split>Building the way forward, <span class="hot">one safer workday at a time.</span></h2>
+    <div class="g3">
+      <div class="card pillar rv">
+        <div class="pw">Protective</div>
+        <div class="k">Action before harm</div>
+        <p>Warns supervisors the evening before, starts check-ins automatically at the Danger level, and makes sure a person checks on any worker who stops responding.</p>
+      </div>
+      <div class="card pillar rv">
+        <div class="pw">Inclusive</div>
+        <div class="k">Made for Filipino crews</div>
+        <p>Guidance in Filipino and English, a safety guide that works offline, and a web app that runs on the phones workers already have. New and returning workers get extra care while they adjust.</p>
+      </div>
+      <div class="card pillar rv">
+        <div class="pw">Feasible</div>
+        <div class="k">Ready to build and pilot</div>
+        <p>Free and open tools, no custom hardware, and a scope of one team in one locality. It supports DOLE's heat advisories with exportable incident records.</p>
+      </div>
+    </div>
+    <div class="why rv"><span class="k">Why now</span><span>El Niño expected to persist into the first half of 2027</span><span>Four forthcoming DOLE labor advisories for the El Niño period</span><span>Heat illness to be compensable through the ECC</span></div>
+    <p class="closing rv">InitWatch turns climate information into repeatable protective action, so no worker is left unchecked in the heat.<span class="ask">Let us pilot it with one outdoor team this dry season.</span></p>
+    <p class="tiny muted rv">Team 16 · Alvarez · Bantayaon · De Galicia · Esguerra · Ordiales</p>
+  </div>
+</section>
+
+</main>
+
+<!-- InitWatch phone -->
+<div class="phone off" id="phone" aria-label="InitWatch app preview">
+  <div class="body"><div class="screen">
+    <div class="sbar"><span id="pTime">9:00</span><i>▮▮▮ ◔</i></div>
+
+    <div class="scr" data-s="home">
+      <div class="a-row"><div><div class="a-k">Heat outlook</div><div class="a-h">North field</div></div><span class="a-pill">FIL | EN</span></div>
+      <div class="a-card">
+        <div class="a-k">Forecast heat index · 1 PM</div>
+        <div class="a-row" style="align-items:flex-end"><div class="a-big">46°</div><span class="cat c3">Danger</span></div>
+      </div>
+      <div class="a-bars" aria-hidden="true">
+        <div style="height:30%;background:var(--pg-caution)"><span>7</span></div>
+        <div style="height:42%;background:var(--pg-xcaution)"><span>9</span></div>
+        <div style="height:62%;background:var(--pg-xcaution)"><span>10</span></div>
+        <div style="height:80%;background:var(--pg-danger)"><span>11</span></div>
+        <div style="height:94%;background:var(--pg-danger)"><span>12</span></div>
+        <div style="height:100%;background:var(--pg-danger)"><span>1</span></div>
+        <div style="height:90%;background:var(--pg-danger)"><span>2</span></div>
+        <div style="height:66%;background:var(--pg-xcaution)"><span>3</span></div>
+        <div style="height:44%;background:var(--pg-xcaution)"><span>4</span></div>
+      </div>
+      <div class="a-card a-row" style="margin-top:1em"><span>Check-ins start</span><b>11:00 AM · auto</b></div>
+      <span class="anno"><i>1</i>auto check-in at Danger</span>
+      <div class="a-card a-row"><span>Your buddy</span><b>Mang Ben</b></div>
+      <div class="a-src">Forecast-derived estimate from Open-Meteo · updated 5:42 AM<br><u>Open PAGASA heat index info ↗</u></div>
+    </div>
+
+    <div class="scr lock" data-s="alert">
+      <div class="l-time">6:00</div><div class="l-date">Wednesday · day before the shift</div>
+      <div class="notif"><div class="n-h"><span class="n-ic"></span>InitWatch · now</div><b>Tomorrow: Danger heat index, 11 AM–3 PM</b><span>Review the north field shift plan. 1 worker needs extra precautions.</span></div>
+      <div class="notif dim"><div class="n-h"><span class="n-ic tg"></span>Telegram · InitWatch Bot</div><b>Bukas: mapanganib na init, 11 AM–3 PM</b><span>Tingnan ang plano ng shift.</span></div>
+    </div>
+
+    <div class="scr" data-s="brief">
+      <div class="a-k">Morning briefing · 6:00 AM</div>
+      <div class="a-h">Magandang umaga, Jun.</div>
+      <ul class="a-list a-card">
+        <li><span>Peak heat</span><b>11 AM – 3 PM</b></li>
+        <li><span>Level</span><span class="cat c3">Danger</span></li>
+        <li><span>Buddy</span><b>Mang Ben</b></li>
+        <li><span>Water</span><b>North shed</b></li>
+        <li><span>Shade rest</span><b>Tent, after 11 AM</b></li>
+      </ul>
+      <div class="a-card"><div class="a-k">Heat adjustment</div><b>Day 3</b> of gradual exposure. Stay close to your buddy.</div>
+      <button type="button" class="a-btn a-pri" tabindex="-1" style="margin-top:auto">Sige, naiintindihan ko<small>Got it</small></button>
+    </div>
+
+    <div class="scr" data-s="plan">
+      <div class="a-k">Shift plan · Thu · 7 AM–4 PM</div>
+      <div class="a-h">North field crew</div>
+      <ul class="a-list a-card">
+        <li><span>Mowing (heavy)</span><span class="st ok">7–10 AM</span></li>
+        <li><span>Pruning (moderate)</span><span class="st ok">Shaded rows</span></li>
+        <li><span>Water station</span><span class="st ok">Confirmed</span></li>
+        <li><span>Shade tent</span><span class="st ok">Set up</span></li>
+        <li><span>Buddy pairs</span><span class="st ok">3 assigned</span></li>
+        <li><span>Rest schedule</span><span class="st wait">Set by you</span></li>
+      </ul>
+      <div class="a-card"><div class="a-k">Needs attention</div>Jun (Day 3): closer supervision, extra buddy checks.</div>
+      <button type="button" class="a-btn a-pri" tabindex="-1" style="margin-top:auto">Confirm plan</button>
+    </div>
+
+    <div class="scr" data-s="accl">
+      <div class="a-k">Acclimatization</div>
+      <div class="a-h">Jun D. · Day 3</div>
+      <div class="a-card">
+        <div class="a-row a-k"><span>Planned vs completed</span><span>min in heat</span></div>
+        <div class="ac-bars" style="margin:.5em 0 1.3em">
+          <div><u style="height:30%"></u><s style="height:30%"></s><em>D1</em></div>
+          <div><u style="height:45%"></u><s style="height:22%"></s><em>D2</em></div>
+          <div><u style="height:50%"></u><s style="height:34%"></s><em>D3</em></div>
+          <div><u style="height:65%"></u><em>D4</em></div>
+          <div><u style="height:80%"></u><em>D5</em></div>
+        </div>
+      </div>
+      <div class="a-card" style="border-color:#f0a23a"><b>Day 2 interrupted</b><br><span style="color:var(--app-muted)">Stopped early. Flagged for supervisor review.</span></div>
+      <div class="a-card"><div class="a-k">Carried into next shift</div>Shorter exposure, closer supervision, extra buddy checks.</div>
+      <div class="a-src">Based on NIOSH guidance: increase exposure gradually over 7–14 days.</div>
+    </div>
+
+    <div class="scr" data-s="checkin">
+      <div class="a-row"><div class="a-k">Check-in · <span id="pCkTime">1:00 PM</span></div><span class="cat c3">46° Danger</span></div>
+      <div class="banner">Reminder: please answer your check-in.</div>
+      <div class="a-h" style="font-size:1.7em;margin-top:.4em">Kumusta ka?</div>
+      <div style="color:var(--app-muted);margin-top:-.4em">How are you?</div>
+      <div style="display:flex;flex-direction:column;gap:.6em;margin-top:auto">
+        <button type="button" class="a-btn a-ok" tabindex="-1">Okay ako<small>I'm okay</small></button>
+        <button type="button" class="a-btn a-help" tabindex="-1">Kailangan ko ng tulong<small>I need help</small></button>
+      </div>
+      <span class="anno"><i>2</i>simple answer, no forms</span>
+      <div class="a-src" style="margin-top:.4em;text-align:center">Check-ins run only during high-heat hours.</div>
+    </div>
+
+    <div class="scr" data-s="sos">
+      <div class="a-k">Help request sent · <span id="pSosTime">1:04 PM</span></div>
+      <div class="a-h">Help is on the way.</div>
+      <div class="map"><span class="pulse"></span><span class="pin"></span></div>
+      <span class="anno"><i>3</i>one-time location pin</span>
+      <ul class="a-list a-card">
+        <li><span>Mang Ben (buddy)</span><span class="st ok">Notified</span></li>
+        <li><span>Foreman Rey</span><span class="st ok">Notified</span></li>
+      </ul>
+      <div class="a-src">Location shared once, only for this request. Deleted at end of shift unless attached to an incident record.</div>
+      <div class="a-card" style="background:#ffd9dc;color:#7a1018;border-color:#f3a7ad;font-weight:600">If symptoms are severe, call for emergency help now. Don't wait for the app.</div>
+    </div>
+
+    <div class="scr" data-s="buddy">
+      <div class="a-k">Buddy alert · for Mang Ben</div>
+      <div class="a-h">Jun hasn't answered for 15 minutes.</div>
+      <div class="a-card">This may only be a signal problem. Please check on Jun in person.</div>
+      <ul class="a-list a-card">
+        <li><span>Worksite</span><b>North field</b></li>
+        <li><span>Heat index</span><span class="cat c3">46° Danger</span></li>
+        <li><span>Escalates to supervisor</span><b>in 10 min</b></li>
+      </ul>
+      <div style="display:flex;flex-direction:column;gap:.5em;margin-top:auto">
+        <button type="button" class="a-btn a-pri" tabindex="-1">Acknowledge</button>
+        <button type="button" class="a-btn a-ghost" tabindex="-1">Record follow-up</button>
+      </div>
+    </div>
+
+    <div class="scr" data-s="esc">
+      <div class="a-k">Escalated · for Foreman Rey</div>
+      <div class="a-h" style="color:#d62f3c">Buddy alert not acknowledged.</div>
+      <div class="a-card">Jun missed the 1:00 PM check-in and Mang Ben hasn't responded in 10 minutes.</div>
+      <ul class="a-list a-card">
+        <li><span>Last check-in</span><b>12:30 PM · Okay</b></li>
+        <li><span>Worksite</span><b>North field</b></li>
+        <li><span>Status</span><span class="st bad">Unresolved</span></li>
+      </ul>
+      <button type="button" class="a-btn a-help" tabindex="-1" style="margin-top:auto">I'm going now</button>
+    </div>
+
+    <div class="scr" data-s="done">
+      <div class="big-check">✓</div>
+      <div class="a-h" style="text-align:center" id="pDoneH">Follow-up recorded</div>
+      <div class="a-card" id="pDoneB" style="text-align:center">Saved to the incident record.</div>
+      <div class="a-src" style="text-align:center">Unresolved cases stay visible on the supervisor dashboard until closed.</div>
+    </div>
+
+    <div class="scr" data-s="dash">
+      <div class="a-k">Supervisor · today</div>
+      <div class="a-h">North field crew</div>
+      <div class="a-row" style="gap:.4em">
+        <div class="a-card" style="flex:1;text-align:center"><b style="font-size:1.4em">7/8</b><div class="a-k">Check-ins</div></div>
+        <div class="a-card" style="flex:1;text-align:center"><b style="font-size:1.4em;color:#d62f3c">1</b><div class="a-k">Unresolved</div></div>
+      </div>
+      <ul class="a-list a-card">
+        <li><span>Jun D. · Day 3</span><span class="st bad">Overdue</span></li>
+        <li><span>Mang Ben</span><span class="st ok">Okay</span></li>
+        <li><span>Lito S.</span><span class="st ok">Okay</span></li>
+        <li><span>Ana P.</span><span class="st ok">Okay</span></li>
+      </ul>
+      <div class="a-card"><div class="a-row a-k"><span>Planned precautions</span><span>5 of 6</span></div><div class="pbar" style="margin-top:.4em"><i style="width:83%"></i></div></div>
+    </div>
+
+    <div class="scr" data-s="incident">
+      <div class="a-k">Incident record</div>
+      <div class="a-h">Thu · North field</div>
+      <div class="a-card" style="font-size:.8em">
+        <div class="a-row"><b>1:15 PM · Missed check-in</b><span class="st ok">Closed</span></div>
+        <div style="color:var(--app-muted);margin-top:.3em">Heat index 46°C (Danger). Buddy checked in person: worker dizzy, moved to shade, given water, supervisor informed.</div>
+        <div style="margin-top:.3em">Responder: Mang Ben · 1:19 PM</div>
+      </div>
+      <div class="a-card" style="font-size:.8em">
+        <div class="a-row"><b>2:40 PM · Help request</b><span class="st ok">Closed</span></div>
+        <div style="color:var(--app-muted);margin-top:.3em">Heat index 45°C. Cramps. Rested in shade. Location deleted at shift end.</div>
+      </div>
+      <button type="button" class="a-btn a-ghost" tabindex="-1" style="margin-top:auto">Export records (CSV)</button>
+    </div>
+
+    <div class="scr" data-s="guide">
+      <div class="a-row"><div class="a-k">Safety guide</div><span class="st ok">Offline ✓</span></div>
+      <div class="a-h">Heat stroke: mga palatandaan</div>
+      <div class="a-card"><div class="a-k">Warning signs</div>Confusion, slurred speech, fainting, seizures, very high body temperature.</div>
+      <div class="a-card"><div class="a-k">Gawin agad · Act now</div>Call for emergency help. Move to shade. Cool with water and wet cloths. Stay with them.</div>
+      <div class="a-card" style="background:#ffd9dc;color:#7a1018;border-color:#f3a7ad;font-weight:600">Seek help immediately. Don't wait for an app response.</div>
+      <div class="a-row" style="margin-top:auto;justify-content:center;gap:.4em"><span class="a-pill" style="background:var(--app-ink);color:var(--app-bg)">Filipino</span><span class="a-pill">English</span></div>
+    </div>
+  </div></div>
+  <i class="reg r1"></i><i class="reg r2"></i><i class="reg r3"></i><i class="reg r4"></i>
+  <div class="dimv" aria-hidden="true"><span>844</span></div>
+  <div class="pcap bpblock"><b>InitWatch · concept blueprint</b><span id="bpScreen">Screen 01 · Heat outlook</span><span>Rev A · not the final design</span></div>
+</div>
+
+
+<nav class="rail" aria-label="Slides">
+  <div class="clock" id="rClock">05:00</div>
+  <div class="hiv" id="rHI">27°</div>
+  <div class="catl" id="rCat">Caution</div>
+  <div class="tube" id="tube"><div class="fill" id="tFill"></div></div>
+  <div class="bulb" id="bulb"></div>
+  <div class="count" id="count">01/14</div>
+</nav>
+
+<div class="hint" id="hint"><span>Scroll or <kbd>←</kbd> <kbd>→</kbd> to move</span><span><kbd>O</kbd> all slides</span><span><kbd>N</kbd> notes</span><span><kbd>F</kbd> fullscreen</span></div>
+<aside class="notes" id="notes" hidden aria-label="Notes"><div class="nhead"><div class="k" id="nNum">1</div><span class="nhint">N or Esc to close</span><button type="button" class="x" id="nClose" aria-label="Close notes" title="Close notes">×</button></div><div id="nText"></div></aside>
+<div class="overview" id="over" hidden role="dialog" aria-label="All slides"><h2>All slides</h2><div class="grid" id="overGrid"></div></div>
+
+<script>
+(function(){
+"use strict";
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return [].slice.call((r||document).querySelectorAll(s))};
+var root=document.documentElement;
+var slides=$$('.slide');
+var N=slides.length;
+var cur=0, busy=false, pending=null;
+var reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+var flowMQ=matchMedia('(max-width: 900px), (max-aspect-ratio: 4/5)');
+var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+/* ---------- heat helpers ---------- */
+function cat(hi){
+  if(hi<27) return {i:0,n:'Below caution'};
+  if(hi<33) return {i:1,n:'Caution'};
+  if(hi<42) return {i:2,n:'Extreme caution'};
+  if(hi<52) return {i:3,n:'Danger'};
+  return {i:4,n:'Extreme danger'};
+}
+var catColor=['#7fd3a0','#ffd23f','#ff9f1c','#f0542d','#b5172e'];
+function heatIndexC(tc,rh){
+  var T=tc*9/5+32, hi=0.5*(T+61+((T-68)*1.2)+(rh*0.094));
+  if((hi+T)/2>=80){
+    hi=-42.379+2.04901523*T+10.14333127*rh-.22475541*T*rh-.00683783*T*T-.05481717*rh*rh+.00122874*T*T*rh+.00085282*T*rh*rh-.00000199*T*T*rh*rh;
+    if(rh<13&&T>=80&&T<=112) hi-=((13-rh)/4)*Math.sqrt((17-Math.abs(T-95))/17);
+    else if(rh>85&&T>=80&&T<=87) hi+=((rh-85)/10)*((87-T)/5);
+  }
+  return (hi-32)*5/9;
+}
+function fmt12(hhmm){var p=hhmm.split(':'),h=+p[0];var ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+p[1]+' '+ap}
+
+/* ---------- split headings into words ---------- */
+$$('[data-split]').forEach(function(el){
+  var i=0;
+  (function walk(node){
+    [].slice.call(node.childNodes).forEach(function(c){
+      if(c.nodeType===3){
+        var frag=document.createDocumentFragment();
+        c.textContent.split(/(\s+)/).forEach(function(tok){
+          if(!tok) return;
+          if(/^\s+$/.test(tok)){frag.appendChild(document.createTextNode(tok));return}
+          var s=document.createElement('span');s.className='w';s.style.setProperty('--d',(i++*0.7).toFixed(1));s.textContent=tok;frag.appendChild(s);
+        });
+        node.replaceChild(frag,c);
+      } else if(c.nodeType===1) walk(c);
+    });
+  })(el);
+});
+/* stagger the other reveals inside each slide */
+slides.forEach(function(s){
+  var words=$$('.w',s).length;
+  $$('.rv',s).forEach(function(el,i){ if(!el.style.getPropertyValue('--d')) el.style.setProperty('--d',(Math.min(words,10)*0.5+i).toFixed(1)) });
+});
+
+/* ---------- rail ---------- */
+var tube=$('#tube');
+slides.forEach(function(s,i){
+  var b=document.createElement('button');b.type='button';
+  b.style.top=((1-i/(N-1))*100)+'%';
+  b.setAttribute('aria-label','Slide '+(i+1)+': '+s.dataset.title);
+  b.innerHTML='<span>'+(i+1)+' · '+s.dataset.title+'</span>';
+  b.addEventListener('click',function(){go(i)});
+  tube.appendChild(b);
+});
+var ticks=$$('button',tube);
+
+/* ---------- phone ---------- */
+var phone=$('#phone'), cycleT=null;
+var SCREENS={home:'01 · Heat outlook',alert:'02 · Evening alert',brief:'03 · Morning briefing',plan:'04 · Shift plan',accl:'05 · Acclimatization',checkin:'06 · Check-in',sos:'07 · Help request',buddy:'08 · Buddy alert',esc:'09 · Escalation',done:'10 · Follow-up recorded',dash:'11 · Supervisor dashboard',incident:'12 · Incident record',guide:'13 · Safety guide'};
+function setPhone(name){
+  if(!name){phone.classList.add('off');return}
+  phone.classList.remove('off');
+  if(SCREENS[name]) $('#bpScreen').textContent='Screen '+SCREENS[name];
+  $$('.scr',phone).forEach(function(s){s.classList.toggle('on',s.dataset.s===name)});
+}
+function phoneFor(s){
+  clearInterval(cycleT);
+  var cyc=s.dataset.phoneCycle;
+  if(cyc){var list=cyc.split(','),k=0;setPhone(list[0]);cycleT=setInterval(function(){k=(k+1)%list.length;setPhone(list[k])},3200);return}
+  setPhone(s.dataset.phone||null);
+}
+$$('#feats .feat').forEach(function(f){
+  function pick(){if(!slides[cur].contains(f)||busy) return;$$('#feats .feat').forEach(function(x){x.classList.toggle('sel',x===f)});setPhone(f.dataset.p)}
+  f.addEventListener('mouseenter',pick);f.addEventListener('focus',pick);f.addEventListener('click',pick);
+});
+
+/* ---------- count-ups ---------- */
+function countUp(s){
+  $$('[data-count]',s).forEach(function(el){
+    var to=+el.dataset.count, from=el.dataset.from?+el.dataset.from:0, t0=null, dur=1300;
+    if(reduced){el.textContent=to;return}
+    function f(t){if(!t0)t0=t;var p=Math.min(1,(t-t0)/dur);var e=1-Math.pow(1-p,3);el.textContent=Math.round(from+(to-from)*e);if(p<1)requestAnimationFrame(f)}
+    el.textContent=from;setTimeout(function(){requestAnimationFrame(f)},400);
+  });
+}
+
+/* ---------- state updates on entering a slide ---------- */
+var heatNow=27, heatTarget=27;
+function enter(n){
+  var s=slides[n], hi=+s.dataset.heat, c=cat(hi), clock=s.dataset.clock;
+  heatTarget=hi;
+  $('#rClock').textContent=clock;
+  $('#rHI').textContent=hi+'°';
+  $('#rCat').textContent={'Below caution':'Low','Extreme caution':'X-Caution','Extreme danger':'X-Danger'}[c.n]||c.n;
+  $('#rCat').title=c.n;
+  $('#bulb').style.setProperty('--bulb',catColor[c.i]);
+  $('#tFill').style.setProperty('--p',(n/(N-1)*100)+'%');
+  $('#count').textContent=String(n+1).padStart(2,'0')+'/'+N;
+  ticks.forEach(function(t,i){t.classList.toggle('on',i===n)});
+  $('#pTime').textContent=fmt12(clock).replace(/ (AM|PM)/,'');
+  $('#nNum').textContent=(n+1)+' · '+s.dataset.title;
+  $('#nText').textContent=s.dataset.notes||'';
+  try{history.replaceState(null,'','#'+(n+1))}catch(e){}
+  phoneFor(s);
+  countUp(s);
+  if(s.hasAttribute('data-sim')) simStart(); else simStop();
+  if(s.hasAttribute('data-features')) $$('#feats .feat').forEach(function(x){x.classList.remove('sel')});
+  if(n>0) $('#hint').classList.add('gone');
+  if(!$('#over').hidden) buildOver();
+}
+
+/* ---------- fit content to the slide ---------- */
+/* how much a slide must shrink to fit (1 = fits as is) */
+function ratio(s){
+  var w=$('.wrap',s); if(!w) return 1;
+  w.style.zoom='';
+  var cs=getComputedStyle(s), avail=s.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+  var top=w.offsetTop, need=0;
+  [].forEach.call(w.children,function(c){need=Math.max(need,c.offsetTop+c.offsetHeight-top)});
+  return Math.min(1,avail/(need+10));
+}
+/* with notes open every slide shares one scale, so boxes keep the same size from slide to slide */
+var sharedZoom=0;
+function fit(s){
+  var w=$('.wrap',s); if(!w) return;
+  if(flowMQ.matches){w.style.zoom='';return}
+  var z=document.body.classList.contains('notes-open')&&sharedZoom?sharedZoom:Math.max(.62,ratio(s));
+  w.style.zoom=z<.999?z.toFixed(3):'';
+}
+function fitAll(){
+  sharedZoom=0;
+  if(document.body.classList.contains('notes-open')&&!flowMQ.matches){
+    var m=1;slides.forEach(function(s){m=Math.min(m,ratio(s))});sharedZoom=Math.max(.8,m);
+  }
+  slides.forEach(fit);
+}
+
+/* ---------- transitions ---------- */
+function anim(dur,fn){return new Promise(function(res){var t0=performance.now();function f(now){var p=Math.min(1,(now-t0)/dur);fn(p);if(p<1)requestAnimationFrame(f);else res()}requestAnimationFrame(f)})}
+var easeOut=function(p){return 1-Math.pow(1-p,3)};
+var inOut=function(p){return p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2};
+
+function tFade(a,b){
+  b.style.opacity=0;
+  return anim(450,function(p){a.style.opacity=1-p;b.style.opacity=p});
+}
+function tAraw(a,b){
+  var W=innerWidth,H=innerHeight,x=Math.max(0,Math.min(W,sun.x)),y=Math.max(0,Math.min(H,sun.y));
+  var R=Math.hypot(Math.max(x,W-x),Math.max(y,H-y));
+  b.style.zIndex=3;
+  return anim(1150,function(p){
+    var e=inOut(p);
+    b.style.clipPath='circle('+(e*R).toFixed(0)+'px at '+x.toFixed(0)+'px '+y.toFixed(0)+'px)';
+    a.style.transform='scale('+(1-.05*e)+')';a.style.opacity=1-.7*e;
+  });
+}
+var T={araw:tAraw};
+function clean(el){el.style.opacity='';el.style.filter='';el.style.transform='';el.style.clipPath='';el.style.zIndex=''}
+
+/* relative moves add up while a transition runs, so each key press counts */
+function step(d){go((pending!==null?pending:cur)+d)}
+function go(n){
+  n=Math.max(0,Math.min(N-1,n));
+  if(busy){pending=n;return}
+  if(n===cur) return;
+  busy=true;
+  var a=slides[cur], b=slides[n], dir=n>cur?1:-1;
+  cur=n;
+  if(a.contains(document.activeElement)) document.activeElement.blur();
+  b.classList.add('active');
+  a.classList.add('moving');b.classList.add('moving');
+  fit(b);
+  enter(n);
+  setTimeout(function(){b.classList.add('in')},reduced?0:420);
+  var tr=(reduced||flowMQ.matches)?tFade(a,b):T[root.dataset.style](a,b,dir);
+  tr.then(function(){
+    a.classList.remove('active','in','moving');b.classList.remove('moving');clean(a);clean(b);
+    busy=false;
+    if(pending!==null){var p=pending;pending=null;go(p)}
+  });
+}
+
+/* ---------- input ---------- */
+var lastWheel=0, wheelAcc=0, wheelLock=false;
+function canScroll(el,dy){
+  while(el&&el!==document.body&&!el.classList.contains('slide')){
+    if(el.scrollHeight>el.clientHeight+12){
+      var st=getComputedStyle(el).overflowY;
+      if(st==='auto'||st==='scroll'){
+        if(dy>0&&el.scrollTop+el.clientHeight<el.scrollHeight-1) return true;
+        if(dy<0&&el.scrollTop>0) return true;
+      }
+    }
+    el=el.parentElement;
+  }
+  return false;
+}
+addEventListener('wheel',function(e){
+  if(flowMQ.matches||!$('#over').hidden) return;
+  var dy=e.deltaMode===1?e.deltaY*30:e.deltaY;
+  if(Math.abs(e.deltaX)>Math.abs(dy)) dy=e.deltaX;
+  if(canScroll(e.target,dy)) return;
+  e.preventDefault();
+  var now=performance.now();
+  if(wheelLock){ if(!busy&&now-lastWheel>220) wheelLock=false; else {lastWheel=now;return} }
+  if(now-lastWheel>250) wheelAcc=0;
+  lastWheel=now; wheelAcc+=dy;
+  if(Math.abs(wheelAcc)>45){ step(wheelAcc>0?1:-1); wheelAcc=0; wheelLock=true; }
+},{passive:false});
+var ty=null,tx=null;
+addEventListener('touchstart',function(e){ty=e.touches[0].clientY;tx=e.touches[0].clientX},{passive:true});
+addEventListener('touchend',function(e){
+  if(flowMQ.matches||ty===null) return;
+  var dy=ty-e.changedTouches[0].clientY, dx=tx-e.changedTouches[0].clientX;
+  var d=Math.abs(dx)>Math.abs(dy)?dx:dy;
+  if(Math.abs(d)>50&&!canScroll(e.target,d)) step(d>0?1:-1);
+  ty=null;
+},{passive:true});
+addEventListener('keydown',function(e){
+  var t=e.target, tag=(t.tagName||'').toLowerCase();
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(tag==='input'&&/Arrow|Page|Home|End/.test(e.key)) return;
+  var k=e.key;
+  if(e.repeat&&/^(Arrow|Page| $)/.test(k)){e.preventDefault();return}
+  if(k==='Escape'){$('#over').hidden=true;toggleNotes(false);return}
+  if(k==='o'||k==='O'){toggleOver();return}
+  if(k==='n'||k==='N'){toggleNotes();return}
+  if(k==='f'||k==='F'){toggleFull();return}
+  if(flowMQ.matches) return;
+  if(k===' '&&tag==='button') return;
+  if(['ArrowRight','ArrowDown','PageDown',' '].indexOf(k)>-1){e.preventDefault();step(1)}
+  else if(['ArrowLeft','ArrowUp','PageUp'].indexOf(k)>-1){e.preventDefault();step(-1)}
+  else if(k==='Home'){e.preventDefault();go(0)}
+  else if(k==='End'){e.preventDefault();go(N-1)}
+});
+
+/* ---------- tools ---------- */
+function toggleFull(){
+  try{ if(document.fullscreenElement) document.exitFullscreen(); else { var r=root.requestFullscreen&&root.requestFullscreen(); if(r&&r.catch) r.catch(function(){}) } }catch(e){}
+}
+function buildOver(){
+  var g=$('#overGrid');g.innerHTML='';
+  slides.forEach(function(s,i){
+    var b=document.createElement('button');b.type='button';b.className='card'+(i===cur?' cur':'');
+    var eb=$('.eyebrow',s);
+    var sk=sky(i/(N-1));
+    b.innerHTML='<span class="ovsw" style="background:linear-gradient(90deg,'+rgb(sk[0])+','+rgb(sk[1])+')"><i style="background:'+rgb(sk[2])+'"></i></span><span class="k">'+String(i+1).padStart(2,'0')+' · '+s.dataset.clock+'</span><b></b><span class="tiny muted"></span>';
+    $('b',b).textContent=s.dataset.title;
+    var ld=$('.lead',s);
+    $('.tiny',b).textContent=eb?[].map.call(eb.children,function(c){return c.textContent.trim()}).filter(Boolean).join(' · '):(ld?ld.textContent.trim():'');
+    b.addEventListener('click',function(){$('#over').hidden=true;go(i)});
+    g.appendChild(b);
+  });
+}
+function toggleOver(){var o=$('#over');if(o.hidden){buildOver();o.hidden=false;var c=$('.cur',o);if(c)c.focus()}else o.hidden=true}
+$('#bOver').addEventListener('click',toggleOver);
+/* notes open as a drawer; the slide area shrinks so nothing is covered */
+function toggleNotes(open){
+  if(open===undefined) open=$('#notes').hidden;
+  $('#notes').hidden=!open;
+  document.body.classList.toggle('notes-open',open);
+  $('#bNotes').setAttribute('aria-pressed',open?'true':'false');
+  sizeNotes();fitAll();drawDay();
+}
+/* the drawer is as tall as the longest note at this width, so no note needs scrolling */
+function sizeNotes(){
+  var dr=$('#notes'),nt=$('#nText');
+  if(dr.hidden){document.body.style.removeProperty('--notes-h');return}
+  var keep=nt.textContent,max=0;
+  nt.style.flex='none';nt.style.height='auto';
+  slides.forEach(function(s){nt.textContent=s.dataset.notes||'';max=Math.max(max,nt.scrollHeight)});
+  nt.textContent=keep;nt.style.flex='';nt.style.height='';
+  var cs=getComputedStyle(dr),h=max+$('.nhead',dr).offsetHeight+(parseFloat(cs.rowGap)||6)+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+2;
+  document.body.style.setProperty('--notes-h',Math.ceil(Math.min(h,innerHeight*.3))+'px');
+}
+$('#bNotes').addEventListener('click',function(){toggleNotes()});
+$('#nClose').addEventListener('click',function(){toggleNotes(false)});
+$('#deck').addEventListener('click',function(e){if(!$('#notes').hidden&&!e.target.closest('button,input,label,a,select,.feat,.lab,.simbox,.steps'))toggleNotes(false)});
+$('#bFull').addEventListener('click',toggleFull);
+$('#over').addEventListener('click',function(e){if(e.target===this)this.hidden=true});
+
+/* ---------- heat index lab ---------- */
+var rT=$('#rT'),rH=$('#rH');
+var acts=[
+  ['Normal shift','Heat outlook stays visible with its source and update time.','No extra check-ins.'],
+  ['Caution','Morning briefing reminds everyone about water and rest.','Fatigue is possible with prolonged exposure and activity.'],
+  ['Extreme caution','Pre-peak reminders go out before the hot hours.','Planner suggests shaded rest and water stations.','New and returning workers are flagged for closer supervision.'],
+  ['Danger','Check-ins start automatically during the danger window.','Buddy pairs are active; missed check-ins reach a person.','Planner moves strenuous tasks to lower-heat windows.'],
+  ['Extreme danger','Supervisor is alerted the evening before.','Planner recommends rescheduling strenuous outdoor work.','Check-ins, buddy follow-up and escalation are all active.']
+];
+function lab(){
+  var t=+rT.value,h=+rH.value,hi=heatIndexC(t,h),c=cat(hi);
+  $('#vT').textContent=t%1?t.toFixed(1):t;$('#vH').textContent=h;
+  $('#oHI').textContent=Math.round(hi);
+  $('#oHI').style.color=c.i>=3?catColor[c.i]:'';
+  var oc=$('#oCat');oc.className='cat c'+c.i;oc.textContent=c.n;
+  $('#oMark').style.left=Math.max(0,Math.min(100,(hi-25)/35*100))+'%';
+  var a=acts[c.i];
+  $('#oActH').textContent='What InitWatch does · '+a[0];
+  $('#oAct').innerHTML='';
+  a.slice(1).forEach(function(x){var li=document.createElement('li');li.textContent=x;$('#oAct').appendChild(li)});
+}
+rT.addEventListener('input',lab);rH.addEventListener('input',lab);
+$$('.presets .btn').forEach(function(b){b.addEventListener('click',function(){rT.value=b.dataset.t;rH.value=b.dataset.h;lab()})});
+lab();
+
+/* ---------- check-in simulation ---------- */
+var simT=0,simTimer=null,simState='idle';
+var stepEls=$$('#steps li');
+function stepMark(k,cls){stepEls.forEach(function(li){if(li.dataset.k===k){li.classList.add(cls)}})}
+function stepNow(k){stepEls.forEach(function(li){if(li.classList.contains('now')){li.classList.remove('now');li.classList.add('done')}});if(k)stepMark(k,'now')}
+function simClock(){var m=simT;return '1:'+String(m).padStart(2,'0')+' PM'}
+function log(txt){var li=document.createElement('li');li.innerHTML='<time></time><span></span>';$('time',li).textContent=simClock();$('span',li).textContent=txt;$('#simLog').prepend(li)}
+function simReset(){
+  clearInterval(simTimer);simT=0;simState='sent';
+  stepEls.forEach(function(li){li.className=''});
+  stepEls[stepEls.length-1].querySelector('time').textContent='—';
+  $('#simLog').innerHTML='';
+  $('#sAck').disabled=true;$('#sOk').disabled=false;$('#sSos').disabled=false;
+  $('#simClock').textContent=simClock();
+  var ck=$('.scr[data-s="checkin"]');ck.classList.remove('remind');$('#pCkTime').textContent='1:00 PM';
+  setPhone('checkin');stepNow('sent');log('Check-in sent to Jun · heat index 46°C (Danger)');
+}
+function simPhone(n){if(slides[cur].hasAttribute('data-sim')) setPhone(n)}
+function simTick(){
+  simT++;$('#simClock').textContent=simClock();
+  if(simT===5&&simState==='sent'){simState='remind';stepNow('remind');$('.scr[data-s="checkin"]').classList.add('remind');log('No answer. Reminder sent to Jun.')}
+  if(simT===15&&simState==='remind'){simState='buddy';stepNow('buddy');simPhone('buddy');$('#sAck').disabled=false;$('#sOk').disabled=true;log('Grace period over. Mang Ben asked to check in person.')}
+  if(simT===25&&simState==='buddy'){simState='esc';stepNow('esc');simPhone('esc');log('Not acknowledged in 10 min. Escalated to Foreman Rey.');clearInterval(simTimer)}
+}
+function finish(head,body,msg){
+  clearInterval(simTimer);simState='done';
+  stepNow('done');stepEls[stepEls.length-1].querySelector('time').textContent=simClock().replace(' PM','');
+  $('#pDoneH').textContent=head;$('#pDoneB').textContent=body;simPhone('done');log(msg);
+  $('#sAck').disabled=true;$('#sOk').disabled=true;$('#sSos').disabled=true;
+}
+function simStart(){simReset();simTimer=setInterval(simTick,1000)}
+function simStop(){clearInterval(simTimer);simState='idle';$('.scr[data-s="checkin"]').classList.remove('remind')}
+$('#sReplay').addEventListener('click',simStart);
+$('#sOk').addEventListener('click',function(){
+  if(simState!=='sent'&&simState!=='remind') return;
+  stepEls.forEach(function(li){if(li.dataset.k==='buddy'||li.dataset.k==='esc')li.classList.add('skip')});
+  finish('Jun is okay','Answered "Okay ako" at '+simClock()+'. Next check-in in 30 minutes.','Jun answered: Okay ako. Check-in closed.');
+});
+$('#sAck').addEventListener('click',function(){
+  if(simState!=='buddy'&&simState!=='esc') return;
+  if(simState==='buddy') stepEls.forEach(function(li){if(li.dataset.k==='esc')li.classList.add('skip')});
+  finish('Follow-up recorded','Mang Ben found Jun dizzy, moved him to shade and gave water. Supervisor informed.','Mang Ben acknowledged and recorded the follow-up.');
+});
+$('#sSos').addEventListener('click',function(){
+  if(simState==='done') return;
+  clearInterval(simTimer);simState='sos';
+  stepEls.forEach(function(li){if(li.dataset.k!=='sent'&&!li.classList.contains('done'))li.classList.add('skip')});
+  $('#pSosTime').textContent=simClock();simPhone('sos');
+  log('Help request from Jun. Buddy and supervisor notified at once with a one-time location pin.');
+  $('#sOk').disabled=true;$('#sSos').disabled=true;$('#sAck').disabled=false;simState='buddy';
+});
+
+/* ---------- hidden tab: stop timers, pick up where we left off ---------- */
+document.addEventListener('visibilitychange',function(){
+  var s=slides[cur];
+  if(document.hidden){clearInterval(simTimer);clearInterval(cycleT);return}
+  if(s.hasAttribute('data-sim')&&(simState==='sent'||simState==='remind'||simState==='buddy')&&simT<25&&!$('#sSos').disabled){clearInterval(simTimer);simTimer=setInterval(simTick,1000)}
+  if(s.dataset.phoneCycle){var list=s.dataset.phoneCycle.split(','),k=0;clearInterval(cycleT);cycleT=setInterval(function(){k=(k+1)%list.length;setPhone(list[k])},3200)}
+});
+
+/* ---------- example day chart (slide 2) ---------- */
+var dayHI=[28,30,33,36,39,42,45,46,44,42,38,34,31]; /* example values, 6 AM to 6 PM */
+function drawDay(){
+  var box=$('#dayChart'); if(!box) return;
+  var w=box.clientWidth,h=box.clientHeight; if(!w||!h) return;
+  var m={l:40,r:10,t:22,b:22},iw=w-m.l-m.r,ih=h-m.t-m.b,y0=25,y1=55;
+  function X(i){return m.l+i/(dayHI.length-1)*iw}
+  function Y(v){return m.t+(1-(v-y0)/(y1-y0))*ih}
+  var o='<svg width="'+w+'" height="'+h+'" role="img" aria-label="Example day: heat index rises from 28 degrees at 6 AM to 46 at 1 PM and stays in the Danger range from 11 AM to 3 PM.">';
+  [[27,33,'--pg-caution','Caution'],[33,42,'--pg-xcaution','Extreme caution'],[42,52,'--pg-danger','Danger'],[52,55,'--pg-xdanger','Extreme danger']].forEach(function(b){
+    o+='<rect x="'+m.l+'" y="'+Y(b[1])+'" width="'+iw+'" height="'+(Y(b[0])-Y(b[1]))+'" fill="var('+b[2]+')" opacity=".2"/>';
+    var bh=Y(b[0])-Y(b[1]);if(bh>=18)o+='<text class="bl" x="'+(m.l+iw-6)+'" y="'+((Y(b[0])+Y(b[1]))/2+4)+'" text-anchor="end">'+b[3]+'</text>';
+  });
+  [27,33,42,52].forEach(function(v){o+='<line x1="'+m.l+'" x2="'+(m.l+iw)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" class="gl"/><text x="'+(m.l-6)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'°</text>'});
+  var dx0=X(5),dx1=X(9);
+  o+='<rect x="'+dx0+'" y="'+m.t+'" width="'+(dx1-dx0)+'" height="'+ih+'" class="dz"/>';
+  o+='<text class="dzl" x="'+((dx0+dx1)/2)+'" y="'+(m.t-8)+'" text-anchor="middle">Danger window · 11 AM – 3 PM</text>';
+  for(var i=0;i<dayHI.length;i+=2){var hr=6+i,lab=(hr%12||12)+(hr<12?' AM':' PM');o+='<text x="'+X(i)+'" y="'+(h-6)+'" text-anchor="middle">'+lab+'</text>'}
+  var d='';dayHI.forEach(function(v,i){d+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)});
+  o+='<path d="'+d+'" class="dayline" pathLength="1"/>';
+  dayHI.forEach(function(v,i){o+='<circle cx="'+X(i)+'" cy="'+Y(v)+'" r="'+(i===7?5.5:2.8)+'" class="'+(i===7?'pk':'pt')+'"/>'});
+  o+='<text class="pkl" x="'+(X(7)+10)+'" y="'+(Y(46)-8)+'">46° at 1 PM</text>';
+  box.innerHTML=o+'</svg>';
+}
+
+/* ---------- ambient background: sky, sun and a worksite that pans through the day ---------- */
+var cv=$('#bg'),mctx=cv.getContext('2d'),W=0,H=0,DPR=1;
+/* the scene is painted into an offscreen canvas only when something moves; idle frames cost nothing */
+var base=document.createElement('canvas'),bctx=base.getContext('2d'),ctx=bctx,dirty=true;
+var sun={x:0,y:0,t:0,intro:0}, scene=null;
+var TRAVEL=.7; /* how far, in screen widths, the nearest layer pans across the deck */
+function resize(){
+  DPR=Math.min(1.5,devicePixelRatio||1);W=innerWidth;H=innerHeight;
+  cv.width=base.width=Math.round(W*DPR);cv.height=base.height=Math.round(H*DPR);
+  mctx.setTransform(DPR,0,0,DPR,0,0);bctx.setTransform(DPR,0,0,DPR,0,0);
+  dirty=true;
+  scene=buildScene();
+  if(slides[cur]){sizeNotes();fitAll();}
+  drawDay();
+}
+var rzQueued=false;
+addEventListener('resize',function(){if(rzQueued)return;rzQueued=true;requestAnimationFrame(function(){rzQueued=false;resize()})});
+function rng(seed){return function(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646}}
+function ridgeY(x){return H*.80-(Math.sin(x/W*2.6)*.55+Math.sin(x/W*6.1+1.3)*.2+.65)*H*.062}
+function midY(x){return H*.89-(Math.sin(x/W*2.2+2)*.5+.5)*H*.018}
+function nearY(x){return H*.958-(Math.sin(x/W*1.6)*.5+.5)*H*.012}
+function buildScene(){
+  var sc={},x,i,k;
+  /* far: a soft ridge, with rice terraces as thin filled steps on one slope */
+  var fw=W*(1+TRAVEL*.25)+40, far=new Path2D(), ter=new Path2D();
+  far.moveTo(-20,H);for(x=-20;x<=fw;x+=8)far.lineTo(x,ridgeY(x));far.lineTo(fw,H);far.closePath();
+  for(k=0;k<5;k++){var x0=W*(.56+k*.02),x1=W*(.98-k*.015),off=H*(.014+k*.012),th=Math.max(2,H*.005);
+    ter.moveTo(x0,ridgeY(x0)+off);for(x=x0;x<=x1;x+=8)ter.lineTo(x,ridgeY(x)+off);
+    for(x=x1;x>=x0;x-=8)ter.lineTo(x,ridgeY(x)+off+th);ter.closePath()}
+  sc.far=far;sc.ter=ter;
+  /* middle: campus hall and trees; a building frame going up and a tower crane, all as solid shapes */
+  var mw=W*(1+TRAVEL*.55)+40, mid=new Path2D(), frame=new Path2D(), win=[];
+  mid.moveTo(-20,H);for(x=-20;x<=mw;x+=12)mid.lineTo(x,midY(x));mid.lineTo(mw,H);mid.closePath();
+  var bx=W*.22,bw=W*.16,bh=H*.055,by=midY(bx+bw/2)+3;
+  mid.rect(bx,by-bh,bw,bh);mid.moveTo(bx-6,by-bh);mid.lineTo(bx+bw/2,by-bh-H*.018);mid.lineTo(bx+bw+6,by-bh);mid.closePath();
+  for(i=0;i<7;i++)for(k=0;k<2;k++)win.push([bx+bw*.07+i*bw*.13,by-bh+bh*.22+k*bh*.36,bw*.07,bh*.2]);
+  [[.17,.024],[.185,.018],[.43,.028],[.448,.02]].forEach(function(t){var cx0=W*t[0],cy0=midY(cx0),r=H*t[1];mid.moveTo(cx0+r,cy0-r*1.25);mid.arc(cx0,cy0-r*1.25,r,0,Math.PI*2);mid.rect(cx0-1.5,cy0-r*.6,3,r*.6+2)});
+  var fx=W*.84,fwid=W*.13,fh=H*.09,fy=midY(fx+fwid/2)+3,bar=Math.max(2,W*.0025),cols=4,rows=3;
+  frame.rect(fx,fy-fh,fwid,fh);
+  var hw=(fwid-bar*(cols+1))/cols,hh=(fh-bar*(rows+1))/rows;
+  for(i=0;i<cols;i++)for(k=0;k<rows;k++)frame.rect(fx+bar+i*(hw+bar),fy-fh+bar+k*(hh+bar),hw,hh);
+  var tx=W*1.1,tb=midY(tx),tt=H*.56,tw=Math.max(5,W*.006);
+  mid.rect(tx,tt,tw,tb-tt);
+  mid.rect(tx-W*.2,tt,W*.2+tw+W*.06,tw*.7);
+  mid.rect(tx+tw+W*.035,tt+tw*.7,W*.022,H*.016);
+  mid.moveTo(tx-tw*.2,tt);mid.lineTo(tx+tw/2,tt-H*.035);mid.lineTo(tx+tw*1.2,tt);mid.closePath();
+  mid.rect(tx-tw*.6,tt+tw*.7,tw*1.4,tw*1.6);
+  mid.rect(tx-W*.13,tt+tw*.7,1.5,H*.07);mid.rect(tx-W*.13-W*.006,tt+tw*.7+H*.07,W*.012+1.5,H*.01);
+  sc.mid=mid;sc.frame=frame;sc.win=win;
+  /* near: ground, two palms, a low fence, and the shade tent with water and a buddy pair */
+  var nw=W*(1+TRAVEL)+40, near=new Path2D(), trunk=new Path2D(), fence=new Path2D();
+  near.moveTo(-20,H);for(x=-20;x<=nw;x+=12)near.lineTo(x,nearY(x));near.lineTo(nw,H);near.closePath();
+  [[.06,.12,1],[1.2,.13,-1]].forEach(function(pm){
+    var px=W*pm[0],py=nearY(px)+2,ph=H*pm[1],lean=pm[2]*W*.022,topx=px+lean,topy=py-ph;
+    trunk.moveTo(px,py);trunk.quadraticCurveTo(px+lean*.15,py-ph*.6,topx,topy);
+    for(var f=0;f<7;f++){var a=-Math.PI*.97+f*Math.PI*.94/6,len=ph*.46,
+      ex=topx+Math.cos(a)*len,ey=topy+Math.sin(a)*len+len*.32,mx=(topx+ex)/2,my=(topy+ey)/2-len*.2,nx=-Math.sin(a)*len*.11,ny=Math.cos(a)*len*.11;
+      near.moveTo(topx,topy);near.quadraticCurveTo(mx+nx,my+ny,ex,ey);near.quadraticCurveTo(mx-nx,my-ny,topx,topy)}
+  });
+  for(x=W*1.32;x<=W*1.64;x+=W*.018){var gy=nearY(x);fence.moveTo(x,gy);fence.lineTo(x,gy-H*.022)}
+  for(k=0;k<2;k++){fence.moveTo(W*1.32,nearY(W*1.32)-H*(.008+k*.01));for(x=W*1.32;x<=W*1.64;x+=8)fence.lineTo(x,nearY(x)-H*(.008+k*.01))}
+  var sx=W*.80,sy=nearY(sx)+2,sw=W*.12,sh=H*.05;
+  near.moveTo(sx-sw*.08,sy-sh);near.lineTo(sx+sw*1.08,sy-sh);near.lineTo(sx+sw*.86,sy-sh-H*.02);near.lineTo(sx+sw*.14,sy-sh-H*.02);near.closePath();
+  near.rect(sx+sw*.04,sy-sh,3,sh);near.rect(sx+sw*.93,sy-sh,3,sh);
+  near.rect(sx+sw*.16,sy-H*.022,W*.012,H*.022);
+  [[.42,0],[.66,1]].forEach(function(w){var wx=sx+sw*w[0],hh=H*.034;
+    near.moveTo(wx+hh*.13,sy-hh+hh*.05);near.arc(wx,sy-hh+hh*.05,hh*.13,0,Math.PI*2);
+    near.moveTo(wx-hh*.2,sy-hh-hh*.02);near.arc(wx,sy-hh-hh*.02,hh*.2,Math.PI,0,true);
+    near.rect(wx-hh*.14,sy-hh+hh*.2,hh*.28,hh*.5);near.rect(wx-hh*.12,sy-hh*.32,hh*.09,hh*.32);near.rect(wx+hh*.03,sy-hh*.32,hh*.09,hh*.32)});
+  sc.near=near;sc.trunk=trunk;sc.fence=fence;
+  var r=rng(11);sc.stars=[];for(i=0;i<46;i++)sc.stars.push([r()*W,r()*H*.5,.6+r()*1.1]);
+  sc.clouds=[[.08,.14,1],[.42,.09,.75],[.7,.2,1.15]];
+  return sc;
+}
+var skyKeys=[[0,'#0d0810','#40180c','#ffb04a'],[.5,'#120906','#5a220b','#fff2cf'],[1,'#0b0608','#3d130a','#ff7a3d']];
+function hex(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+function mixA(A,B,f){return [0,1,2].map(function(i){return Math.round(A[i]+(B[i]-A[i])*f)})}
+function rgb(a,al){return al===undefined?'rgb('+a.join(',')+')':'rgba('+a.join(',')+','+al+')'}
+function sky(t){var j=0;while(j<skyKeys.length-2&&t>skyKeys[j+1][0])j++;var a=skyKeys[j],b=skyKeys[j+1],f=(t-a[0])/(b[0]-a[0]);return [mixA(hex(a[1]),hex(b[1]),f),mixA(hex(a[2]),hex(b[2]),f),mixA(hex(a[3]),hex(b[3]),f)]}
+function shift(depth){ctx.translate(-sun.t*W*TRAVEL*depth,0)}
+/* a horizontal glow centred on the sun, in a layer's own (panned) coordinates */
+function rim(depth,alpha){var off=sun.t*W*TRAVEL*depth,g=ctx.createLinearGradient(sun.x+off-W*.5,0,sun.x+off+W*.5,0);
+  g.addColorStop(0,'rgba(255,150,60,0)');g.addColorStop(.5,'rgba(255,170,80,'+alpha+')');g.addColorStop(1,'rgba(255,150,60,0)');return g}
+function drawAraw(){
+  var c=sky(sun.t), k=Math.max(0,Math.min(1,(heatNow-25)/22)), hy=H*.79;
+  var low=Math.max(0,1-Math.sin(Math.PI*sun.t)*1.5); /* 1 when the sun is on the horizon */
+  /* sky: near-black above, warming toward the horizon */
+  var g=ctx.createLinearGradient(0,0,0,hy);g.addColorStop(0,rgb(c[0]));g.addColorStop(.6,rgb(mixA(c[0],c[1],.35)));g.addColorStop(1,rgb(c[1]));
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  if(low>.15){ctx.fillStyle='rgba(255,236,210,'+(.55*low)+')';scene.stars.forEach(function(st){ctx.beginPath();ctx.arc(st[0],st[1]*.9,st[2]*.9,0,Math.PI*2);ctx.fill()})}
+  /* the sun: sits on the horizon at dawn, climbs with the heat, sinks into the flare at the end */
+  var usable=W-76;
+  sun.x=usable*(.9+.06*sun.t);
+  sun.y=hy-H*.045-Math.sin(Math.PI*sun.t)*H*.6+H*.16*Math.max(0,sun.t-.9)/.1+sun.intro*H*.25;
+  var R=Math.min(W,H)*.042*(1+.2*k);
+  var amb=ctx.createRadialGradient(sun.x,sun.y,0,sun.x,sun.y,W*.62);
+  amb.addColorStop(0,'rgba(255,154,61,'+(.42+.2*k)+')');amb.addColorStop(.32,'rgba(255,106,42,'+(.14+.08*k)+')');amb.addColorStop(1,'rgba(255,106,42,0)');
+  ctx.fillStyle=amb;ctx.fillRect(0,0,W,H);
+  /* horizon flare: a flattened glow along the skyline, strongest while the sun is low */
+  var fl=.45+.4*low+.25*k;
+  ctx.save();ctx.translate(sun.x,hy);ctx.scale(1,.095);
+  var band=ctx.createRadialGradient(0,0,0,0,0,W*.62);
+  band.addColorStop(0,'rgba(255,243,208,'+Math.min(1,fl)+')');band.addColorStop(.22,'rgba(255,176,74,'+(fl*.6)+')');band.addColorStop(1,'rgba(255,106,42,0)');
+  ctx.fillStyle=band;ctx.beginPath();ctx.arc(0,0,W*.62,0,Math.PI*2);ctx.fill();ctx.restore();
+  /* sun core */
+  var core=ctx.createRadialGradient(sun.x,sun.y,R*.6,sun.x,sun.y,R*3.2);
+  core.addColorStop(0,'rgba(255,250,240,1)');core.addColorStop(.35,'rgba(255,210,122,.9)');core.addColorStop(1,'rgba(255,138,42,0)');
+  ctx.fillStyle=core;ctx.beginPath();ctx.arc(sun.x,sun.y,R*3.2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fffaf0';ctx.beginPath();ctx.arc(sun.x,sun.y,R,0,Math.PI*2);ctx.fill();
+  /* thin light streak across the horizon */
+  var st=ctx.createLinearGradient(0,0,W,0),sx=Math.max(.05,Math.min(.95,sun.x/W));
+  st.addColorStop(0,'rgba(255,217,160,0)');st.addColorStop(sx,'rgba(255,233,196,'+(.5+.35*low)+')');st.addColorStop(1,'rgba(255,217,160,0)');
+  ctx.fillStyle=st;ctx.fillRect(0,hy-1,W,2.5);
+  /* silhouettes: almost black, with a warm rim where the flare catches the skyline */
+  ctx.save();shift(.25);ctx.fillStyle='#140906';ctx.fill(scene.far);ctx.fillStyle='rgba(255,140,60,.07)';ctx.fill(scene.ter);
+  ctx.strokeStyle=rim(.25,.75);ctx.lineWidth=1.6;ctx.stroke(scene.far);ctx.restore();
+  ctx.save();shift(.55);ctx.fillStyle='#090504';ctx.fill(scene.mid);ctx.fill(scene.frame,'evenodd');
+  ctx.strokeStyle=rim(.55,.45);ctx.lineWidth=1.2;ctx.stroke(scene.mid);
+  if(low>.2&&sun.t>.5){ctx.fillStyle='rgba(255,200,96,'+low+')';scene.win.forEach(function(w){ctx.fillRect(w[0],w[1],w[2],w[3])})}
+  ctx.restore();
+  ctx.save();shift(1);ctx.fillStyle='#050302';ctx.fill(scene.near);ctx.strokeStyle='#050302';ctx.lineCap='round';
+  ctx.lineWidth=Math.max(3,W*.0035);ctx.stroke(scene.trunk);ctx.lineWidth=1.5;ctx.stroke(scene.fence);ctx.restore();
+}
+/* heat haze rising off the skyline near the sun, from Extreme caution up (drawn over the cached scene) */
+function drawHaze(time){
+  var hy=H*.79,sa=Math.max(0,Math.min(1,(heatNow-33)/12))*.35;
+  if(sa>.01){ctx.lineWidth=1.5;
+    for(var j=0;j<4;j++){var y0=hy-H*(.012+j*.018);ctx.strokeStyle='rgba(255,226,180,'+(sa*(.5+.5*Math.sin(time*1.3+j)))+')';ctx.beginPath();
+      for(var x=sun.x-W*.35;x<=sun.x+W*.35;x+=10){var yy=y0+Math.sin(x*.014+time*1.8+j*1.7)*2;x===sun.x-W*.35?ctx.moveTo(x,yy):ctx.lineTo(x,yy)}ctx.stroke()}}
+}
+/* ease the sun, pan and heat toward the current slide; true while anything is still moving */
+function stepScene(){
+  var m=false,d=cur/(N-1)-sun.t,h=heatTarget-heatNow;
+  if(Math.abs(d)>.0015){sun.t+=d*.04;m=true}else if(d){sun.t=cur/(N-1);m=true}
+  if(sun.intro>.001){sun.intro*=.965;m=true}else if(sun.intro){sun.intro=0;m=true}
+  if(Math.abs(h)>.15){heatNow+=h*.05;m=true}else if(h){heatNow=heatTarget;m=true}
+  return m;
+}
+var lastF=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  if(now-lastF<(busy?50:33)||!scene) return; lastF=now;
+  var moved=stepScene()||dirty, haze=!reduced&&heatNow>33.2;
+  dirty=false;
+  if(moved){ctx=bctx;drawAraw();}
+  if(moved||haze){mctx.clearRect(0,0,W,H);mctx.drawImage(base,0,0,W,H);if(haze){ctx=mctx;drawHaze(now/1000);ctx=bctx}}
+}
+
+/* ---------- boot ---------- */
+var start=parseInt((location.hash||'').slice(1),10);
+cur=(start>=1&&start<=N)?start-1:0;
+sun.t=cur/(N-1);
+resize();
+var intro=cur===0&&!reduced&&!flowMQ.matches;
+if(intro) sun.intro=1;
+slides[cur].classList.add('active');
+fit(slides[cur]);
+enter(cur);
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){fitAll();drawDay()});
+setTimeout(function(){slides[cur].classList.add('in')},intro?1100:60);
+flowMQ.addEventListener&&flowMQ.addEventListener('change',function(){slides.forEach(function(s){s.classList.add('in')});resize()});
+if(flowMQ.matches) slides.forEach(function(s){s.classList.add('in')});
+addEventListener('hashchange',function(){var h=parseInt(location.hash.slice(1),10);if(h>=1&&h<=N&&h-1!==cur)go(h-1)});
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
